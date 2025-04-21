@@ -3,6 +3,7 @@ import pandas as pd
 import random
 from tqdm import tqdm
 import os
+import argparse
 
 
 def generate_no_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
@@ -250,7 +251,7 @@ def generate_no_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_
     # Calculate result
     result = a - b
 
-    return a, b, result
+    return a, -b, result
 
 
 def generate_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3, min_borrows=1):
@@ -317,15 +318,10 @@ def generate_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_dig
     for digit in reversed(b_digits[:digits_b]):
         b = b * 10 + digit
 
-    # Ensure the result is correct and positive
-    if a <= b:
-        # If our algorithm failed to ensure a > b, just swap them
-        return b, a, b - a
-
     # Calculate result
     result = a - b
 
-    return a, b, result
+    return a, -b, result
 
 
 def generate_no_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
@@ -360,7 +356,7 @@ def generate_no_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3,
         b = b * 10 + digit
 
     # Calculate result (for -a + b)
-    result = b - a
+    result = -a + b
 
     return -a, b, result
 
@@ -379,7 +375,7 @@ def generate_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3, mi
     )
 
     # Swap a and b, and adjust signs
-    return -b, a, result
+    return -a, -b, -result
 
 
 def format_expression(a, b):
@@ -398,26 +394,19 @@ def format_expression(a, b):
         return f"{a}-{abs(b)}"
 
 
-def fix_calculation(a, b, expected_result):
-    """Verify that the calculation is correct."""
-    if (a >= 0 and b >= 0) or (a < 0 and b < 0):
-        # Both positive or both negative: addition
-        actual_result = a + b
-    elif a >= 0 and b < 0:
-        # First positive, second negative: subtraction
-        actual_result = a + b  # Since b is already negative
-    else:  # a < 0 and b >= 0
-        # First negative, second positive: addition
-        actual_result = a + b
-
-    if actual_result != expected_result:
-        print(f"Calculation error: {a} and {b} should result in {actual_result}, not {expected_result}")
-        return False
-    return True
+def calculate_correct_result(a, b):
+    """Calculate the correct arithmetic result for a and b."""
+    # Calculate the actual result
+    return a + b  # This works for all cases since b is already negative for a-b or a is negative for -a+b
 
 
-def generate_dataset(num_samples=10000, min_digits=1, max_digits=5, save_path="arithmetic_dataset.csv",
-                     test_longer_digits=False):
+def generate_dataset(num_samples=10000,
+                     min_digits=1,
+                     max_digits=5,
+                     save_path="arithmetic_dataset.csv",
+                     gen_min_digits=None,
+                     gen_max_digits=None,
+                     gen_save_path=None):
     """Generate a balanced dataset across all 8 required cases."""
     samples_per_category = num_samples // 8
 
@@ -452,50 +441,51 @@ def generate_dataset(num_samples=10000, min_digits=1, max_digits=5, save_path="a
             # Format the expression
             expression = format_expression(a, b)
 
-            # Verify the calculation is correct
-            if not fix_calculation(a, b, result):
-                # If there's an error, recalculate the correct result
-                if (a >= 0 and b >= 0) or (a < 0 and b < 0):
-                    result = a + b
-                else:
-                    result = a + b  # b is already negative for a-b or a is negative for -a+b
+            # Always calculate the correct result using simple a+b arithmetic
+            # (b is already negative for subtractions)
+            correct_result = calculate_correct_result(a, b)
+
+            # Check if the generator's result is incorrect
+            if result != correct_result:
+                print(f"Calculation error fixed: {a} and {b} should result in {correct_result}, not {result}")
+                result = correct_result
 
             # Store the category for logging but it won't be in the final output
             data.append({'expression': expression, 'result': result, '_category': category_name})
 
-    # Generate a separate test set with longer digit numbers for generalization testing if requested
-    if test_longer_digits:
-        test_min_digits = max_digits + 1
-        test_max_digits = max_digits + 3
-        test_samples_per_category = num_samples // 16  # Half the number per category for test set
+    # Generate generalization dataset if parameters are provided
+    gen_data = []
+    if gen_min_digits is not None and gen_max_digits is not None:
+        gen_samples_per_category = num_samples // 16  # Half the number per category for generalization set
 
         for category_name, generator_func in tqdm(categories, desc="Generating generalization test set"):
-            for _ in tqdm(range(test_samples_per_category), desc=f"Generating {category_name} (generalization)"):
+            for _ in tqdm(range(gen_samples_per_category), desc=f"Generating {category_name} (generalization)"):
                 if "carry" in category_name:
-                    a, b, result = generator_func(min_digits_a=test_min_digits, max_digits_a=test_max_digits,
-                                                  min_digits_b=test_min_digits, max_digits_b=test_max_digits,
+                    a, b, result = generator_func(min_digits_a=gen_min_digits, max_digits_a=gen_max_digits,
+                                                  min_digits_b=gen_min_digits, max_digits_b=gen_max_digits,
                                                   min_carries=1)
                 elif "borrow" in category_name:
-                    a, b, result = generator_func(min_digits_a=test_min_digits, max_digits_a=test_max_digits,
-                                                  min_digits_b=test_min_digits, max_digits_b=test_max_digits,
+                    a, b, result = generator_func(min_digits_a=gen_min_digits, max_digits_a=gen_max_digits,
+                                                  min_digits_b=gen_min_digits, max_digits_b=gen_max_digits,
                                                   min_borrows=1)
                 else:
-                    a, b, result = generator_func(min_digits_a=test_min_digits, max_digits_a=test_max_digits,
-                                                  min_digits_b=test_min_digits, max_digits_b=test_max_digits)
+                    a, b, result = generator_func(min_digits_a=gen_min_digits, max_digits_a=gen_max_digits,
+                                                  min_digits_b=gen_min_digits, max_digits_b=gen_max_digits)
 
                 # Format the expression
                 expression = format_expression(a, b)
 
-                # Verify the calculation is correct
-                if not fix_calculation(a, b, result):
-                    # If there's an error, recalculate the correct result
-                    if (a >= 0 and b >= 0) or (a < 0 and b < 0):
-                        result = a + b
-                    else:
-                        result = a + b  # b is already negative for a-b or a is negative for -a+b
+                # Always calculate the correct result using simple a+b arithmetic
+                # (b is already negative for subtractions)
+                correct_result = calculate_correct_result(a, b)
+
+                # Check if the generator's result is incorrect
+                if result != correct_result:
+                    print(f"Calculation error fixed: {a} and {b} should result in {correct_result}, not {result}")
+                    result = correct_result
 
                 # Store the category for logging but it won't be in the final output
-                data.append(
+                gen_data.append(
                     {'expression': expression, 'result': result, '_category': category_name + " (generalization)"})
 
     # Convert to DataFrame
@@ -518,24 +508,13 @@ def generate_dataset(num_samples=10000, min_digits=1, max_digits=5, save_path="a
     val_ratio = 0.1
     test_ratio = 0.1
 
-    if test_longer_digits:
-        # If we have a generalization test set, all the generalization examples go to test
-        train_val_df = df[~df['_category'].str.contains("generalization")]
-        gen_test_df = df[df['_category'].str.contains("generalization")]
+    # Standard split for regular data
+    train_size = int(len(df) * train_ratio)
+    val_size = int(len(df) * val_ratio)
 
-        # Split the regular examples into train and validation
-        train_size = int(len(train_val_df) * (train_ratio / (train_ratio + val_ratio)))
-        train_df = train_val_df.iloc[:train_size]
-        val_df = train_val_df.iloc[train_size:]
-        test_df = gen_test_df
-    else:
-        # Standard split
-        train_size = int(len(df) * train_ratio)
-        val_size = int(len(df) * val_ratio)
-
-        train_df = df.iloc[:train_size]
-        val_df = df.iloc[train_size:train_size + val_size]
-        test_df = df.iloc[train_size + val_size:]
+    train_df = df.iloc[:train_size]
+    val_df = df.iloc[train_size:train_size + val_size]
+    test_df = df.iloc[train_size + val_size:]
 
     # Save the splits (without the category column)
     base_name, ext = os.path.splitext(save_path)
@@ -547,19 +526,61 @@ def generate_dataset(num_samples=10000, min_digits=1, max_digits=5, save_path="a
     print(f"Validation set: {len(val_df)} examples")
     print(f"Test set: {len(test_df)} examples")
 
+    # Save generalization dataset if it exists
+    if gen_data and gen_save_path:
+        gen_df = pd.DataFrame(gen_data)
+        gen_df = gen_df.sample(frac=1).reset_index(drop=True)
+        gen_df[['expression', 'result']].to_csv(gen_save_path, index=False)
+        print(f"\nGeneralization dataset saved to {gen_save_path}")
+        print(f"Generalization examples: {len(gen_df)}")
+
     # Print statistics
     print("\nCategory distribution:")
     category_counts = df['_category'].value_counts()
     for category, count in category_counts.items():
         print(f"{category}: {count} examples ({count / len(df) * 100:.1f}%)")
 
+    if gen_data:
+        print("\nGeneralization category distribution:")
+        gen_category_counts = pd.DataFrame(gen_data)['_category'].value_counts()
+        for category, count in gen_category_counts.items():
+            print(f"{category}: {count} examples ({count / len(gen_data) * 100:.1f}%)")
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Generate arithmetic dataset for transformer training')
+    parser.add_argument('--num_samples', type=int, default=80000,
+                        help='Total number of examples (divided by 8 for each category)')
+    parser.add_argument('--min_digits', type=int, default=1,
+                        help='Minimum number of digits for regular dataset')
+    parser.add_argument('--max_digits', type=int, default=5,
+                        help='Maximum number of digits for regular dataset')
+    parser.add_argument('--save_path', type=str, default="arithmetic_dataset.csv",
+                        help='Path to save the regular dataset')
+    parser.add_argument('--gen_min_digits', type=int, default=None,
+                        help='Minimum number of digits for generalization dataset')
+    parser.add_argument('--gen_max_digits', type=int, default=None,
+                        help='Maximum number of digits for generalization dataset')
+    parser.add_argument('--gen_save_path', type=str, default=None,
+                        help='Path to save the generalization dataset')
+
+    args = parser.parse_args()
+
+    # Default generalization digits if not specified but generalization path is provided
+    if args.gen_save_path and args.gen_min_digits is None and args.gen_max_digits is None:
+        args.gen_min_digits = args.max_digits + 1
+        args.gen_max_digits = args.max_digits + 3
+
+    generate_dataset(
+        num_samples=args.num_samples,
+        min_digits=args.min_digits,
+        max_digits=args.max_digits,
+        save_path=args.save_path,
+        gen_min_digits=args.gen_min_digits,
+        gen_max_digits=args.gen_max_digits,
+        gen_save_path=args.gen_save_path
+    )
+
 
 if __name__ == "__main__":
-    # Example usage
-    generate_dataset(
-        num_samples=80000,  # Total number of examples (divided by 8 for each category)
-        min_digits=1,  # Minimum number of digits
-        max_digits=5,  # Maximum number of digits for training
-        save_path="arithmetic_dataset.csv",
-        test_longer_digits=True  # Generate additional test examples with more digits
-    )
+    main()
