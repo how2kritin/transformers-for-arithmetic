@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from pathlib import Path
 import os
 from torch.utils.data import DataLoader, SequentialSampler
 
@@ -20,13 +19,7 @@ class ArithmeticTransformerInference:
             tokenizer,
             device="cuda" if torch.cuda.is_available() else "cpu"
     ):
-        """Initialize the inference module for ArithmeticTransformer.
-
-        Args:
-            model: The transformer model
-            tokenizer: The tokenizer for encoding/decoding
-            device: Device to use for inference
-        """
+        """Initialize the inference module for ArithmeticTransformer."""
         self.model = model.to(device)
         self.tokenizer = tokenizer
         self.device = device
@@ -39,17 +32,7 @@ class ArithmeticTransformerInference:
 
     @classmethod
     def from_checkpoint(cls, checkpoint_path, model_config=None, max_seq_length=None, device=None):
-        """Create inference module from a checkpoint file.
-
-        Args:
-            checkpoint_path: Path to the checkpoint file
-            model_config: Configuration for the model (optional)
-            max_seq_length: Maximum sequence length for tokenizer (optional)
-            device: Device to use for inference (optional)
-
-        Returns:
-            ArithmeticTransformerInference instance
-        """
+        """Create inference module from a checkpoint file."""
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -92,15 +75,7 @@ class ArithmeticTransformerInference:
         return cls(model, tokenizer, device)
 
     def predict_single(self, input_text, max_len=None):
-        """Generate prediction for a single input.
-
-        Args:
-            input_text: Input text string
-            max_len: Maximum length of the generated sequence
-
-        Returns:
-            Predicted text
-        """
+        """Generate prediction for a single input."""
         if max_len is None:
             max_len = self.tokenizer.max_length
 
@@ -160,116 +135,12 @@ class ArithmeticTransformerInference:
         pred_text = self.tokenizer.decode(pred_tokens)
         return pred_text
 
-    def predict(self, input_text, max_len=None, batch_size=16):
-        """Generate predictions using greedy decoding.
-
-        Args:
-            input_text: Input text or list of input texts
-            max_len: Maximum length of the generated sequence
-            batch_size: Size of batches to process at once (to avoid OOM)
-
-        Returns:
-            Predicted text or list of predicted texts
-        """
-        # Handle single input or list of inputs
-        is_single_input = not isinstance(input_text, list)
-        input_texts = [input_text] if is_single_input else input_text
-
-        # Process inputs in batches to avoid OOM
-        all_predictions = []
-
-        # Use tqdm to show progress across batches
-        for i in tqdm(range(0, len(input_texts), batch_size), desc="Processing batches"):
-            batch_inputs = input_texts[i:i + batch_size]
-
-            # Process each input in the batch individually to avoid GPU OOM
-            batch_predictions = []
-            for single_input in tqdm(batch_inputs, desc="Generating", leave=False):
-                pred = self.predict_single(single_input, max_len=max_len)
-                batch_predictions.append(pred)
-
-            all_predictions.extend(batch_predictions)
-
-        # Return a single prediction or list of predictions
-        return all_predictions[0] if is_single_input else all_predictions
-
-    def evaluate_batch(self, inputs, targets, batch_size=16):
-        """Evaluate the model on a batch of inputs and targets.
-
-        Args:
-            inputs: List of input texts
-            targets: List of target texts
-            batch_size: Size of batches to process at once
-
-        Returns:
-            Dictionary of metrics
-        """
-        # Generate predictions
-        predictions = self.predict(inputs, batch_size=batch_size)
-
-        # Calculate metrics
-        exact_matches = 0
-        for pred, target in zip(predictions, targets):
-            if pred.strip() == target.strip():
-                exact_matches += 1
-
-        accuracy = exact_matches / len(inputs) if len(inputs) > 0 else 0
-
-        return {
-            "accuracy": accuracy,
-            "predictions": predictions,
-            "num_samples": len(inputs)
-        }
-
-    def evaluate_csv_file(self, csv_file, max_len=None, batch_size=16):
-        """Evaluate the model on data from a CSV file using sequential token generation.
-        This method is more accurate but slower.
-
-        Args:
-            csv_file: Path to CSV file containing expressions and results
-            max_len: Maximum length of the generated sequence
-            batch_size: Size of batches to process at once
-
-        Returns:
-            Dictionary of metrics and predictions
-        """
-        # Ensure file exists
-        if not os.path.isfile(csv_file):
-            raise FileNotFoundError(f"Dataset file not found: {csv_file}")
-
-        # Load data
-        data = pd.read_csv(csv_file)
-
-        # Extract expressions and results
-        expressions = [str(expr) for expr in data['expression']]
-        results = [str(res) for res in data['result']]
-
-        print(f"Loaded {len(expressions)} samples from {csv_file}")
-
-        # Evaluate
-        metrics = self.evaluate_batch(expressions, results, batch_size=batch_size)
-
-        print(f"Accuracy on {csv_file}: {metrics['accuracy']:.4f}")
-
-        return metrics
-
     def evaluate_csv_file_faster(self, csv_file, max_len=None, batch_size=32, num_workers=4):
-        """Evaluate the model on data from a CSV file using parallel batch processing.
-        Uses teacher forcing for faster evaluation like train_model.py does.
-
-        Args:
-            csv_file: Path to CSV file containing expressions and results
-            max_len: Maximum length of the generated sequence
-            batch_size: Size of batches to process at once
-            num_workers: Number of workers for data loading
-
-        Returns:
-            Dictionary of metrics
-        """
+        """Evaluate the model on data from a CSV file using parallel batch processing."""
         if max_len is None:
             max_len = self.tokenizer.max_length
 
-        # Create a dataset directly using ArithmeticDataset (same as in train_model.py)
+        # Create a dataset directly using ArithmeticDataset
         dataset = ArithmeticDataset(
             csv_file=csv_file,
             tokenizer=self.tokenizer,
@@ -301,7 +172,7 @@ class ArithmeticTransformerInference:
         all_inputs = []
         all_targets = []
 
-        # Set up criterion like in train_model.py
+        # Set up criterion
         criterion = torch.nn.CrossEntropyLoss(ignore_index=self.pad_idx)
 
         with torch.no_grad():
@@ -330,7 +201,7 @@ class ArithmeticTransformerInference:
                     target_text = self.tokenizer.decode(target_tokens[1:end_pos])  # Skip SOS token
                     all_targets.append(target_text)
 
-                # Create input/output for teacher forcing evaluation (exactly like train_model.py)
+                # Create input/output for teacher forcing evaluation
                 src = input_ids
                 tgt = labels[:, :-1]  # Remove last token for decoder input
                 tgt_output = labels[:, 1:]  # Remove first token (SOS) for targets
@@ -365,7 +236,7 @@ class ArithmeticTransformerInference:
                     pred_text = self.tokenizer.decode(valid_pred_tokens)
                     all_predictions.append(pred_text)
 
-                # Calculate metrics just like in train_model.py
+                # Calculate metrics
                 mask = (tgt_output != self.pad_idx)
 
                 # Exact match (entire sequence correct)
@@ -413,13 +284,9 @@ def main():
     parser.add_argument("--checkpoint", type=str, required=True,
                         help="Path to the model checkpoint file")
     parser.add_argument("--input", type=str, required=False,
-                        help="Input text for inference")
-    parser.add_argument("--input_file", type=str, required=False,
-                        help="File containing input texts, one per line")
+                        help="Input text for inference (e.g., '2+3')")
     parser.add_argument("--csv_file", type=str, required=False,
                         help="CSV file containing 'expression' and 'result' columns")
-    parser.add_argument("--dataset_path", type=str, required=False,
-                        help="Path to the dataset directory containing dataset_test.csv")
     parser.add_argument("--output_file", type=str, required=False,
                         help="File to save output predictions")
     parser.add_argument("--max_length", type=int, default=None,
@@ -428,17 +295,14 @@ def main():
                         help="Batch size for processing multiple inputs")
     parser.add_argument("--no_cuda", action="store_true",
                         help="Disable CUDA")
-    parser.add_argument("--fast_eval", action="store_true",
-                        help="Use fast evaluation mode for CSV files (parallel batch processing)")
     parser.add_argument("--num_workers", type=int, default=4,
                         help="Number of workers for data loading in fast evaluation mode")
 
     args = parser.parse_args()
 
     # Check for valid input options
-    input_options = [args.input, args.input_file, args.csv_file, args.dataset_path]
-    if not any(input_options):
-        parser.error("At least one of --input, --input_file, --csv_file, or --dataset_path must be provided")
+    if not args.input and not args.csv_file:
+        parser.error("At least one of --input or --csv_file must be provided")
 
     # Set device
     device = torch.device("cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda")
@@ -452,88 +316,27 @@ def main():
     )
 
     # Perform inference based on input type
-    if args.dataset_path:
-        # Use dataset_test.csv from the dataset directory (like train_model.py)
-        test_csv = os.path.join(args.dataset_path, 'dataset_test.csv')
-        if os.path.isfile(test_csv):
-            print(f"Evaluating model on {test_csv}...")
-
-            # Choose evaluation method based on args.fast_eval
-            if args.fast_eval:
-                print("Using fast evaluation mode (parallel batch processing)")
-                results = inference_model.evaluate_csv_file_faster(
-                    csv_file=test_csv,
-                    max_len=args.max_length,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers
-                )
-            else:
-                print("Using standard evaluation mode (sequential token generation)")
-                results = inference_model.evaluate_csv_file(
-                    csv_file=test_csv,
-                    max_len=args.max_length,
-                    batch_size=args.batch_size
-                )
-
-            # Save predictions if output file is provided
-            if args.output_file:
-                with open(args.output_file, 'w') as f:
-                    f.write(f"Accuracy: {results['accuracy']:.4f}\n")
-                    if 'char_accuracy' in results:
-                        f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
-                    if 'perplexity' in results:
-                        f.write(f"Perplexity: {results['perplexity']:.4f}\n")
-                    f.write("\n")
-
-                    # Write individual examples
-                    for i, (inp, target, pred) in enumerate(zip(
-                            results.get('inputs', []),
-                            results.get('targets', []),
-                            results['predictions'])):
-                        f.write(f"Example {i + 1}:\n")
-                        f.write(f"  Input: {inp}\n")
-                        f.write(f"  Target: {target}\n")
-                        f.write(f"  Prediction: {pred}\n")
-                        f.write(f"  Correct: {pred.strip() == target.strip()}\n\n")
-                print(f"Results saved to {args.output_file}")
-        else:
-            print(f"Error: dataset_test.csv not found in {args.dataset_path}")
-
-    elif args.csv_file:
-        # Use a specific CSV file
+    if args.csv_file:
+        # Use a specific CSV file with fast_eval by default
         print(f"Evaluating model on {args.csv_file}...")
-
-        # Choose evaluation method based on args.fast_eval
-        if args.fast_eval:
-            print("Using fast evaluation mode (parallel batch processing)")
-            results = inference_model.evaluate_csv_file_faster(
-                csv_file=args.csv_file,
-                max_len=args.max_length,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
-        else:
-            print("Using standard evaluation mode (sequential token generation)")
-            results = inference_model.evaluate_csv_file(
-                csv_file=args.csv_file,
-                max_len=args.max_length,
-                batch_size=args.batch_size
-            )
+        results = inference_model.evaluate_csv_file_faster(
+            csv_file=args.csv_file,
+            max_len=args.max_length,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
 
         # Save predictions if output file is provided
         if args.output_file:
             with open(args.output_file, 'w') as f:
                 f.write(f"Accuracy: {results['accuracy']:.4f}\n")
-                if 'char_accuracy' in results:
-                    f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
-                if 'perplexity' in results:
-                    f.write(f"Perplexity: {results['perplexity']:.4f}\n")
-                f.write("\n")
+                f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
+                f.write(f"Perplexity: {results['perplexity']:.4f}\n\n")
 
                 # Write individual examples
                 for i, (inp, target, pred) in enumerate(zip(
-                        results.get('inputs', []),
-                        results.get('targets', []),
+                        results['inputs'],
+                        results['targets'],
                         results['predictions'])):
                     f.write(f"Example {i + 1}:\n")
                     f.write(f"  Input: {inp}\n")
@@ -544,38 +347,9 @@ def main():
 
     elif args.input:
         # Single input
-        prediction = inference_model.predict(args.input, max_len=args.max_length)
+        prediction = inference_model.predict_single(args.input, max_len=args.max_length)
         print(f"Input: {args.input}")
         print(f"Prediction: {prediction}")
-
-    elif args.input_file:
-        # Multiple inputs from file
-        with open(args.input_file, 'r') as f:
-            input_texts = [line.strip() for line in f.readlines()]
-
-        print(f"Running inference on {len(input_texts)} inputs...")
-        predictions = inference_model.predict(
-            input_texts,
-            max_len=args.max_length,
-            batch_size=args.batch_size
-        )
-
-        # Save predictions if output file is provided
-        if args.output_file:
-            with open(args.output_file, 'w') as f:
-                for inp, pred in zip(input_texts, predictions):
-                    f.write(f"Input: {inp}\nPrediction: {pred}\n\n")
-            print(f"Predictions saved to {args.output_file}")
-        else:
-            # Print predictions to console (limit to first 20 for readability)
-            for i, (inp, pred) in enumerate(zip(input_texts[:20], predictions[:20])):
-                print(f"Example {i + 1}:")
-                print(f"  Input: {inp}")
-                print(f"  Prediction: {pred}")
-                print("")
-
-            if len(input_texts) > 20:
-                print(f"... and {len(input_texts) - 20} more predictions (not shown)")
 
 
 if __name__ == "__main__":
