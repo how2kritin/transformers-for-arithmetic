@@ -1,12 +1,16 @@
 import argparse
 import torch
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
+import os
+from torch.utils.data import DataLoader, SequentialSampler
 
 from src.data.processing.tokenizer import ArithmeticTokenizer
 from src.models.transformer import ArithmeticTransformer
 from src.models.transformer_config import ArithmeticTransformerConfig
+from src.data.processing.dataset import ArithmeticDataset
 
 
 class ArithmeticTransformerInference:
@@ -217,6 +221,190 @@ class ArithmeticTransformerInference:
             "num_samples": len(inputs)
         }
 
+    def evaluate_csv_file(self, csv_file, max_len=None, batch_size=16):
+        """Evaluate the model on data from a CSV file using sequential token generation.
+        This method is more accurate but slower.
+
+        Args:
+            csv_file: Path to CSV file containing expressions and results
+            max_len: Maximum length of the generated sequence
+            batch_size: Size of batches to process at once
+
+        Returns:
+            Dictionary of metrics and predictions
+        """
+        # Ensure file exists
+        if not os.path.isfile(csv_file):
+            raise FileNotFoundError(f"Dataset file not found: {csv_file}")
+
+        # Load data
+        data = pd.read_csv(csv_file)
+
+        # Extract expressions and results
+        expressions = [str(expr) for expr in data['expression']]
+        results = [str(res) for res in data['result']]
+
+        print(f"Loaded {len(expressions)} samples from {csv_file}")
+
+        # Evaluate
+        metrics = self.evaluate_batch(expressions, results, batch_size=batch_size)
+
+        print(f"Accuracy on {csv_file}: {metrics['accuracy']:.4f}")
+
+        return metrics
+
+    def evaluate_csv_file_faster(self, csv_file, max_len=None, batch_size=32, num_workers=4):
+        """Evaluate the model on data from a CSV file using parallel batch processing.
+        Uses teacher forcing for faster evaluation like train_model.py does.
+
+        Args:
+            csv_file: Path to CSV file containing expressions and results
+            max_len: Maximum length of the generated sequence
+            batch_size: Size of batches to process at once
+            num_workers: Number of workers for data loading
+
+        Returns:
+            Dictionary of metrics
+        """
+        if max_len is None:
+            max_len = self.tokenizer.max_length
+
+        # Create a dataset directly using ArithmeticDataset (same as in train_model.py)
+        dataset = ArithmeticDataset(
+            csv_file=csv_file,
+            tokenizer=self.tokenizer,
+            max_length=max_len
+        )
+
+        # Create dataloader for efficient batch processing
+        dataloader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=SequentialSampler(dataset),
+            num_workers=num_workers,
+            pin_memory=True
+        )
+
+        print(f"Loaded {len(dataset)} samples from {csv_file}")
+        print(f"Processing in {len(dataloader)} batches")
+
+        # Ensure model is in evaluation mode
+        self.model.eval()
+
+        # Initialize metrics tracking
+        total_loss = 0
+        all_correct_sequences = 0
+        all_correct_chars = 0
+        total_sequences = 0
+        total_chars = 0
+        all_predictions = []
+        all_inputs = []
+        all_targets = []
+
+        # Set up criterion like in train_model.py
+        criterion = torch.nn.CrossEntropyLoss(ignore_index=self.pad_idx)
+
+        with torch.no_grad():
+            # Process batches with tqdm progress bar
+            pbar = tqdm(dataloader, desc="Evaluating")
+            for batch in pbar:
+                # Extract input_ids and labels from batch
+                input_ids = batch['input_ids'].to(self.device)
+                labels = batch['labels'].to(self.device)
+
+                # Store original inputs and targets for reporting
+                for i in range(input_ids.size(0)):
+                    # Get tokens up to padding or EOS
+                    input_tokens = input_ids[i].cpu().numpy().tolist()
+                    eos_pos = input_tokens.index(self.eos_token) if self.eos_token in input_tokens else -1
+                    pad_pos = input_tokens.index(self.pad_idx) if self.pad_idx in input_tokens else len(input_tokens)
+                    end_pos = min(eos_pos if eos_pos != -1 else len(input_tokens), pad_pos)
+                    input_text = self.tokenizer.decode(input_tokens[:end_pos])
+                    all_inputs.append(input_text)
+
+                    # Get target tokens up to padding or EOS
+                    target_tokens = labels[i].cpu().numpy().tolist()
+                    eos_pos = target_tokens.index(self.eos_token) if self.eos_token in target_tokens else -1
+                    pad_pos = target_tokens.index(self.pad_idx) if self.pad_idx in target_tokens else len(target_tokens)
+                    end_pos = min(eos_pos if eos_pos != -1 else len(target_tokens), pad_pos)
+                    target_text = self.tokenizer.decode(target_tokens[1:end_pos])  # Skip SOS token
+                    all_targets.append(target_text)
+
+                # Create input/output for teacher forcing evaluation (exactly like train_model.py)
+                src = input_ids
+                tgt = labels[:, :-1]  # Remove last token for decoder input
+                tgt_output = labels[:, 1:]  # Remove first token (SOS) for targets
+
+                # Forward pass
+                outputs = self.model(src, tgt)
+
+                # Reshape for loss calculation
+                batch_size_current, seq_len, vocab_size = outputs.shape
+                outputs_flat = outputs.contiguous().view(batch_size_current * seq_len, vocab_size)
+                tgt_output_flat = tgt_output.contiguous().view(-1)
+
+                # Calculate loss
+                loss = criterion(outputs_flat, tgt_output_flat)
+                current_loss = loss.item()
+                total_loss += current_loss
+
+                # Reshape back for accuracy calculation
+                outputs = outputs.view(batch_size_current, seq_len, vocab_size)
+                tgt_output = tgt_output.view(batch_size_current, seq_len)
+
+                # Calculate predictions
+                predictions = outputs.argmax(dim=2)
+
+                # Store predictions for reporting
+                for i in range(predictions.size(0)):
+                    pred_tokens = predictions[i].cpu().numpy().tolist()
+                    mask = (tgt_output[i] != self.pad_idx).cpu().numpy()
+                    # Get only valid tokens (before padding)
+                    valid_length = sum(mask)
+                    valid_pred_tokens = [t for t, m in zip(pred_tokens[:valid_length], mask[:valid_length]) if m]
+                    pred_text = self.tokenizer.decode(valid_pred_tokens)
+                    all_predictions.append(pred_text)
+
+                # Calculate metrics just like in train_model.py
+                mask = (tgt_output != self.pad_idx)
+
+                # Exact match (entire sequence correct)
+                correct_sequences = ((predictions == tgt_output) | ~mask).all(dim=1).sum().item()
+                all_correct_sequences += correct_sequences
+                total_sequences += batch_size_current
+
+                # Character-level accuracy
+                correct_chars = ((predictions == tgt_output) & mask).sum().item()
+                total_chars += mask.sum().item()
+                all_correct_chars += correct_chars
+
+                # Update progress bar
+                pbar.set_postfix(loss=f"{current_loss:.4f}")
+
+        # Calculate final metrics
+        avg_loss = total_loss / len(dataloader)
+        accuracy = all_correct_sequences / total_sequences if total_sequences > 0 else 0
+        char_accuracy = all_correct_chars / total_chars if total_chars > 0 else 0
+        perplexity = np.exp(avg_loss)
+
+        # Print results
+        print(f"Evaluation on {csv_file}:")
+        print(f"  Loss: {avg_loss:.4f}")
+        print(f"  Accuracy: {accuracy:.4f}")
+        print(f"  Character Accuracy: {char_accuracy:.4f}")
+        print(f"  Perplexity: {perplexity:.4f}")
+
+        return {
+            "loss": avg_loss,
+            "accuracy": accuracy,
+            "char_accuracy": char_accuracy,
+            "perplexity": perplexity,
+            "predictions": all_predictions,
+            "inputs": all_inputs,
+            "targets": all_targets,
+            "num_samples": total_sequences
+        }
+
 
 def main():
     """Run inference with a trained arithmetic transformer model."""
@@ -228,6 +416,10 @@ def main():
                         help="Input text for inference")
     parser.add_argument("--input_file", type=str, required=False,
                         help="File containing input texts, one per line")
+    parser.add_argument("--csv_file", type=str, required=False,
+                        help="CSV file containing 'expression' and 'result' columns")
+    parser.add_argument("--dataset_path", type=str, required=False,
+                        help="Path to the dataset directory containing dataset_test.csv")
     parser.add_argument("--output_file", type=str, required=False,
                         help="File to save output predictions")
     parser.add_argument("--max_length", type=int, default=None,
@@ -236,12 +428,17 @@ def main():
                         help="Batch size for processing multiple inputs")
     parser.add_argument("--no_cuda", action="store_true",
                         help="Disable CUDA")
+    parser.add_argument("--fast_eval", action="store_true",
+                        help="Use fast evaluation mode for CSV files (parallel batch processing)")
+    parser.add_argument("--num_workers", type=int, default=4,
+                        help="Number of workers for data loading in fast evaluation mode")
 
     args = parser.parse_args()
 
-    # Check that either input or input_file is provided
-    if not args.input and not args.input_file:
-        parser.error("Either --input or --input_file must be provided")
+    # Check for valid input options
+    input_options = [args.input, args.input_file, args.csv_file, args.dataset_path]
+    if not any(input_options):
+        parser.error("At least one of --input, --input_file, --csv_file, or --dataset_path must be provided")
 
     # Set device
     device = torch.device("cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda")
@@ -254,8 +451,98 @@ def main():
         device=device
     )
 
-    # Perform inference
-    if args.input:
+    # Perform inference based on input type
+    if args.dataset_path:
+        # Use dataset_test.csv from the dataset directory (like train_model.py)
+        test_csv = os.path.join(args.dataset_path, 'dataset_test.csv')
+        if os.path.isfile(test_csv):
+            print(f"Evaluating model on {test_csv}...")
+
+            # Choose evaluation method based on args.fast_eval
+            if args.fast_eval:
+                print("Using fast evaluation mode (parallel batch processing)")
+                results = inference_model.evaluate_csv_file_faster(
+                    csv_file=test_csv,
+                    max_len=args.max_length,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers
+                )
+            else:
+                print("Using standard evaluation mode (sequential token generation)")
+                results = inference_model.evaluate_csv_file(
+                    csv_file=test_csv,
+                    max_len=args.max_length,
+                    batch_size=args.batch_size
+                )
+
+            # Save predictions if output file is provided
+            if args.output_file:
+                with open(args.output_file, 'w') as f:
+                    f.write(f"Accuracy: {results['accuracy']:.4f}\n")
+                    if 'char_accuracy' in results:
+                        f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
+                    if 'perplexity' in results:
+                        f.write(f"Perplexity: {results['perplexity']:.4f}\n")
+                    f.write("\n")
+
+                    # Write individual examples
+                    for i, (inp, target, pred) in enumerate(zip(
+                            results.get('inputs', []),
+                            results.get('targets', []),
+                            results['predictions'])):
+                        f.write(f"Example {i + 1}:\n")
+                        f.write(f"  Input: {inp}\n")
+                        f.write(f"  Target: {target}\n")
+                        f.write(f"  Prediction: {pred}\n")
+                        f.write(f"  Correct: {pred.strip() == target.strip()}\n\n")
+                print(f"Results saved to {args.output_file}")
+        else:
+            print(f"Error: dataset_test.csv not found in {args.dataset_path}")
+
+    elif args.csv_file:
+        # Use a specific CSV file
+        print(f"Evaluating model on {args.csv_file}...")
+
+        # Choose evaluation method based on args.fast_eval
+        if args.fast_eval:
+            print("Using fast evaluation mode (parallel batch processing)")
+            results = inference_model.evaluate_csv_file_faster(
+                csv_file=args.csv_file,
+                max_len=args.max_length,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers
+            )
+        else:
+            print("Using standard evaluation mode (sequential token generation)")
+            results = inference_model.evaluate_csv_file(
+                csv_file=args.csv_file,
+                max_len=args.max_length,
+                batch_size=args.batch_size
+            )
+
+        # Save predictions if output file is provided
+        if args.output_file:
+            with open(args.output_file, 'w') as f:
+                f.write(f"Accuracy: {results['accuracy']:.4f}\n")
+                if 'char_accuracy' in results:
+                    f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
+                if 'perplexity' in results:
+                    f.write(f"Perplexity: {results['perplexity']:.4f}\n")
+                f.write("\n")
+
+                # Write individual examples
+                for i, (inp, target, pred) in enumerate(zip(
+                        results.get('inputs', []),
+                        results.get('targets', []),
+                        results['predictions'])):
+                    f.write(f"Example {i + 1}:\n")
+                    f.write(f"  Input: {inp}\n")
+                    f.write(f"  Target: {target}\n")
+                    f.write(f"  Prediction: {pred}\n")
+                    f.write(f"  Correct: {pred.strip() == target.strip()}\n\n")
+            print(f"Results saved to {args.output_file}")
+
+    elif args.input:
         # Single input
         prediction = inference_model.predict(args.input, max_len=args.max_length)
         print(f"Input: {args.input}")
