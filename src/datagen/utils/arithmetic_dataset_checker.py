@@ -1,3 +1,5 @@
+# Use this script to check if the output dataset is correct.
+
 import pandas as pd
 import argparse
 from tqdm import tqdm
