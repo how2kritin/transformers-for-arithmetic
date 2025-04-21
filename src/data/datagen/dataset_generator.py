@@ -1,7 +1,7 @@
 import argparse
 import time
-from data.datagen.utils.arithmetic_generator_utils import set_random_seed
-from data.datagen.utils.problem_generators import (
+from src.data.datagen.utils.arithmetic_generator_utils import set_random_seed
+from src.data.datagen.utils.problem_generators import (
     generate_no_carry_addition,
     generate_carry_addition,
     generate_no_borrow_negative_subtraction,
@@ -11,7 +11,7 @@ from data.datagen.utils.problem_generators import (
     generate_no_carry_negative_positive_addition,
     generate_carry_negative_positive_addition
 )
-from data.datagen.utils.dataset_utils import generate_dataset
+from src.data.datagen.utils.dataset_utils import generate_dataset
 
 
 def main():

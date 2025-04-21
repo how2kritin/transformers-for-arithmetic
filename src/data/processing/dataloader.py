@@ -3,8 +3,8 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
-from data.processing.dataset import ArithmeticDataset
-from data.processing.tokenizer import ArithmeticTokenizer
+from src.data.processing.dataset import ArithmeticDataset
+from src.data.processing.tokenizer import ArithmeticTokenizer
 
 
 def create_dataloaders(dataset_path, tokenizer=None, batch_size=32, max_length=64, num_workers=4):

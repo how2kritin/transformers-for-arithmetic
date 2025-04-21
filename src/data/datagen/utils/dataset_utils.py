@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from data.datagen.utils.arithmetic_generator_utils import format_expression, calculate_correct_result
+from src.data.datagen.utils.arithmetic_generator_utils import format_expression, calculate_correct_result
 
 
 def generate_data_for_category(category_name, generator_func, samples_count, min_digits, max_digits):

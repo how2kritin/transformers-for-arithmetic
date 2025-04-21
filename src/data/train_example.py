@@ -1,8 +1,8 @@
 """example script showing how to use the dataset and dataloader."""
 import os
 import torch
-from data.processing.tokenizer import ArithmeticTokenizer
-from data.processing.dataloader import create_dataloaders
+from src.data.processing.tokenizer import ArithmeticTokenizer
+from src.data.processing.dataloader import create_dataloaders
 
 
 def main():

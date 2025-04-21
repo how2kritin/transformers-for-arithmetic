@@ -118,3 +118,15 @@ class ArithmeticTokenizer:
     def get_vocab_size(self):
         """return the size of the vocabulary."""
         return len(self.vocab)
+
+    def get_pad_token_id(self):
+        """return the padding token id."""
+        return self.vocab['<pad>']
+
+    def get_sos_token_id(self):
+        """return the start of sequence token id."""
+        return self.vocab['<sos>']
+
+    def get_eos_token_id(self):
+        """return the end of sequence token id."""
+        return self.vocab['<eos>']

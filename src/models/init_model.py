@@ -1,7 +1,7 @@
 import torch
-from models.transformer import ArithmeticTransformer
-from models.transformer_config import ArithmeticTransformerConfig
-from data.processing.tokenizer import ArithmeticTokenizer
+from src.models.transformer import ArithmeticTransformer
+from src.models.transformer_config import ArithmeticTransformerConfig
+from src.data.processing.tokenizer import ArithmeticTokenizer
 
 
 def initialize_model():
