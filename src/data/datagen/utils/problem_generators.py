@@ -1,5 +1,5 @@
 import random
-from datagen.utils.arithmetic_generator_utils import convert_digits_to_number
+from data.datagen.utils.arithmetic_generator_utils import convert_digits_to_number
 
 def generate_no_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
     """generate addition problems where no carrying is required."""
