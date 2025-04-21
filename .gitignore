@@ -1,3 +1,4 @@
 Report.pdf
 datasets/*
 !datasets/.gitkeep
+checkpoints

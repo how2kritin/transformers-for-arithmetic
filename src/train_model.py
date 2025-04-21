@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm, trange  # Added tqdm import
 
 from src.data.processing.dataloader import create_dataloaders
 from src.data.processing.tokenizer import ArithmeticTokenizer
@@ -95,7 +96,9 @@ class ArithmeticTransformerTrainer:
 
         no_improvement_count = 0
 
-        for epoch in range(epochs):
+        # Use tqdm for epoch iteration
+        epoch_iterator = trange(epochs, desc="Epochs")
+        for epoch in epoch_iterator:
             start_time = time.time()
 
             # Training phase
@@ -118,8 +121,16 @@ class ArithmeticTransformerTrainer:
 
             epoch_time = time.time() - start_time
 
-            # Print epoch results
-            print(f"Epoch {epoch + 1}/{epochs} | Time: {epoch_time:.2f}s")
+            # Update tqdm description with metrics
+            epoch_iterator.set_description(
+                f"Epoch {epoch + 1}/{epochs} | "
+                f"Train Loss: {train_loss:.4f} | "
+                f"Val Loss: {val_loss:.4f} | "
+                f"Acc: {val_accuracy:.4f}"
+            )
+
+            # Print detailed epoch results
+            print(f"\nEpoch {epoch + 1}/{epochs} | Time: {epoch_time:.2f}s")
             print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
             print(f"Train Accuracy: {train_accuracy:.4f} | Val Accuracy: {val_accuracy:.4f}")
             print(f"Train Perplexity: {train_perplexity:.4f} | Val Perplexity: {val_perplexity:.4f}")
@@ -146,6 +157,7 @@ class ArithmeticTransformerTrainer:
         # Test the model if test data is provided
         if self.test_loader is not None:
             self.load_checkpoint("best_model.pt")  # Load the best model for testing
+            print("\nEvaluating on test set...")
             test_loss, test_metrics = self._evaluate(self.test_loader)
             test_accuracy, test_perplexity, test_char_accuracy = test_metrics
 
@@ -173,7 +185,9 @@ class ArithmeticTransformerTrainer:
         total_sequences = 0
         total_chars = 0
 
-        for batch in self.train_loader:
+        # Add tqdm progress bar for batches
+        pbar = tqdm(self.train_loader, desc="Training", leave=False)
+        for batch in pbar:
             # Extract input_ids and labels from batch
             input_ids = batch['input_ids'].to(self.device)
             labels = batch['labels'].to(self.device)
@@ -204,7 +218,8 @@ class ArithmeticTransformerTrainer:
             self.optimizer.step()
 
             # Calculate metrics
-            epoch_loss += loss.item()
+            current_loss = loss.item()
+            epoch_loss += current_loss
 
             # Reshape back for accuracy calculation
             outputs = outputs.view(batch_size, seq_len, vocab_size)
@@ -223,6 +238,9 @@ class ArithmeticTransformerTrainer:
             correct_chars = ((predictions == tgt_output) & mask).sum().item()
             total_chars += mask.sum().item()
             all_correct_chars += correct_chars
+
+            # Update progress bar with current loss
+            pbar.set_postfix(loss=f"{current_loss:.4f}")
 
         # Calculate average metrics
         avg_loss = epoch_loss / len(self.train_loader)
@@ -249,7 +267,9 @@ class ArithmeticTransformerTrainer:
         total_chars = 0
 
         with torch.no_grad():
-            for batch in dataloader:
+            # Add tqdm progress bar for evaluation batches
+            pbar = tqdm(dataloader, desc="Evaluating", leave=False)
+            for batch in pbar:
                 # Extract input_ids and labels from batch
                 input_ids = batch['input_ids'].to(self.device)
                 labels = batch['labels'].to(self.device)
@@ -269,7 +289,8 @@ class ArithmeticTransformerTrainer:
 
                 # Calculate loss
                 loss = self.criterion(outputs, tgt_output)
-                total_loss += loss.item()
+                current_loss = loss.item()
+                total_loss += current_loss
 
                 # Reshape back for accuracy calculation
                 outputs = outputs.view(batch_size, seq_len, vocab_size)
@@ -288,6 +309,9 @@ class ArithmeticTransformerTrainer:
                 correct_chars = ((predictions == tgt_output) & mask).sum().item()
                 total_chars += mask.sum().item()
                 all_correct_chars += correct_chars
+
+                # Update progress bar with current loss
+                pbar.set_postfix(loss=f"{current_loss:.4f}")
 
         # Calculate average metrics
         avg_loss = total_loss / len(dataloader)
@@ -323,7 +347,8 @@ class ArithmeticTransformerTrainer:
         # Initialize target sequence with SOS token
         tgt = torch.full((batch_size, 1), self.sos_token, dtype=torch.long, device=self.device)
 
-        for i in range(max_len - 1):
+        # Use tqdm for decoding steps
+        for i in tqdm(range(max_len - 1), desc="Generating", leave=False):
             # Create target padding mask
             tgt_padding_mask = self.model.create_padding_mask(tgt, self.pad_idx).to(self.device)
 
@@ -358,18 +383,28 @@ class ArithmeticTransformerTrainer:
         Args:
             filename: Name of the checkpoint file
         """
+        # Convert any NumPy arrays to PyTorch tensors to ensure compatibility
+        train_losses = torch.tensor(self.train_losses) if self.train_losses else []
+        val_losses = torch.tensor(self.val_losses) if self.val_losses else []
+        train_accuracies = torch.tensor(self.train_accuracies) if self.train_accuracies else []
+        val_accuracies = torch.tensor(self.val_accuracies) if self.val_accuracies else []
+        train_perplexities = torch.tensor(self.train_perplexities) if self.train_perplexities else []
+        val_perplexities = torch.tensor(self.val_perplexities) if self.val_perplexities else []
+        train_char_accuracies = torch.tensor(self.train_char_accuracies) if self.train_char_accuracies else []
+        val_char_accuracies = torch.tensor(self.val_char_accuracies) if self.val_char_accuracies else []
+
         checkpoint = {
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'train_losses': self.train_losses,
-            'val_losses': self.val_losses,
-            'train_accuracies': self.train_accuracies,
-            'val_accuracies': self.val_accuracies,
-            'train_perplexities': self.train_perplexities,
-            'val_perplexities': self.val_perplexities,
-            'train_char_accuracies': self.train_char_accuracies,
-            'val_char_accuracies': self.val_char_accuracies,
-            'best_val_loss': self.best_val_loss
+            'train_losses': train_losses,
+            'val_losses': val_losses,
+            'train_accuracies': train_accuracies,
+            'val_accuracies': val_accuracies,
+            'train_perplexities': train_perplexities,
+            'val_perplexities': val_perplexities,
+            'train_char_accuracies': train_char_accuracies,
+            'val_char_accuracies': val_char_accuracies,
+            'best_val_loss': float(self.best_val_loss)
         }
         torch.save(checkpoint, self.checkpoint_dir / filename)
         print(f"Checkpoint saved to {self.checkpoint_dir / filename}")
@@ -382,7 +417,15 @@ class ArithmeticTransformerTrainer:
         """
         checkpoint_path = self.checkpoint_dir / filename
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            try:
+                # First try with weights_only=True (new default in PyTorch 2.6+)
+                checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            except Exception as e:
+                print(f"Error loading with weights_only=True: {e}")
+                print("Trying with weights_only=False (legacy mode)...")
+                # If that fails, try with weights_only=False (old behavior)
+                checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.train_losses = checkpoint.get('train_losses', [])
