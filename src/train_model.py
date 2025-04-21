@@ -415,7 +415,7 @@ class ArithmeticTransformerTrainer:
         Args:
             filename: Name of the checkpoint file
         """
-        checkpoint_path = self.checkpoint_dir / filename
+        checkpoint_path = filename
         if os.path.exists(checkpoint_path):
             try:
                 # First try with weights_only=True (new default in PyTorch 2.6+)
@@ -428,14 +428,14 @@ class ArithmeticTransformerTrainer:
 
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.train_losses = checkpoint.get('train_losses', [])
-            self.val_losses = checkpoint.get('val_losses', [])
-            self.train_accuracies = checkpoint.get('train_accuracies', [])
-            self.val_accuracies = checkpoint.get('val_accuracies', [])
-            self.train_perplexities = checkpoint.get('train_perplexities', [])
-            self.val_perplexities = checkpoint.get('val_perplexities', [])
-            self.train_char_accuracies = checkpoint.get('train_char_accuracies', [])
-            self.val_char_accuracies = checkpoint.get('val_char_accuracies', [])
+            self.train_losses = checkpoint.get('train_losses', []).cpu().numpy()
+            self.val_losses = checkpoint.get('val_losses', []).cpu().numpy()
+            self.train_accuracies = checkpoint.get('train_accuracies', []).cpu().numpy()
+            self.val_accuracies = checkpoint.get('val_accuracies', []).cpu().numpy()
+            self.train_perplexities = checkpoint.get('train_perplexities', []).cpu().numpy()
+            self.val_perplexities = checkpoint.get('val_perplexities', []).cpu().numpy()
+            self.train_char_accuracies = checkpoint.get('train_char_accuracies', []).cpu().numpy()
+            self.val_char_accuracies = checkpoint.get('val_char_accuracies', []).cpu().numpy()
             self.best_val_loss = checkpoint.get('best_val_loss', float('inf'))
             print(f"Checkpoint loaded from {checkpoint_path}")
         else:
@@ -595,6 +595,7 @@ def main():
     # Load checkpoint if provided
     if args.resume:
         trainer.load_checkpoint(args.resume)
+        trainer.plot_training_history()
 
     # Train model
     trainer.train(epochs=args.epochs, early_stopping_patience=args.patience)

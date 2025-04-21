@@ -19,11 +19,11 @@ def main():
     start_time = time.time()
 
     parser = argparse.ArgumentParser(description='generate arithmetic dataset for transformer training')
-    parser.add_argument('--num_samples', type=int, default=80000,
+    parser.add_argument('--num_samples', type=int, default=200000,
                         help='total number of examples (divided by 8 for each category)')
     parser.add_argument('--min_digits', type=int, default=1,
                         help='minimum number of digits for regular dataset')
-    parser.add_argument('--max_digits', type=int, default=5,
+    parser.add_argument('--max_digits', type=int, default=10,
                         help='maximum number of digits for regular dataset')
     parser.add_argument('--output_dir', type=str, default="./datasets",
                         help='directory to save the dataset files')
@@ -47,7 +47,7 @@ def main():
     # default generalization digits if not specified but generalization path is provided
     if args.gen_filename and args.gen_min_digits is None and args.gen_max_digits is None:
         args.gen_min_digits = args.max_digits + 1
-        args.gen_max_digits = args.max_digits + 3
+        args.gen_max_digits = args.max_digits + 5
 
     # define the categories and their generator functions
     categories = [
