@@ -17,19 +17,8 @@ from src.models.transformer_config import ArithmeticTransformerConfig
 
 
 class ArithmeticTransformerTrainer:
-    def __init__(
-            self,
-            model,
-            tokenizer,
-            train_loader,
-            val_loader,
-            test_loader=None,
-            criterion=None,
-            optimizer=None,
-            lr=1e-4,
-            device="cuda" if torch.cuda.is_available() else "cpu",
-            checkpoint_dir="checkpoints"
-    ):
+    def __init__(self, model, tokenizer, train_loader, val_loader, test_loader=None, criterion=None, optimizer=None,
+            lr=1e-4, device="cuda" if torch.cuda.is_available() else "cpu", checkpoint_dir="checkpoints"):
         """Initialize the trainer for the ArithmeticTransformer.
 
         Args:
@@ -122,12 +111,10 @@ class ArithmeticTransformerTrainer:
             epoch_time = time.time() - start_time
 
             # Update tqdm description with metrics
-            epoch_iterator.set_description(
-                f"Epoch {epoch + 1}/{epochs} | "
-                f"Train Loss: {train_loss:.4f} | "
-                f"Val Loss: {val_loss:.4f} | "
-                f"Acc: {val_accuracy:.4f}"
-            )
+            epoch_iterator.set_description(f"Epoch {epoch + 1}/{epochs} | "
+                                           f"Train Loss: {train_loss:.4f} | "
+                                           f"Val Loss: {val_loss:.4f} | "
+                                           f"Acc: {val_accuracy:.4f}")
 
             # Print detailed epoch results
             print(f"\nEpoch {epoch + 1}/{epochs} | Time: {epoch_time:.2f}s")
@@ -357,12 +344,8 @@ class ArithmeticTransformerTrainer:
             tgt_mask = self.model.generate_square_subsequent_mask(tgt_len).to(self.device)
 
             # Decode
-            output = self.model.decoder(
-                tgt, memory,
-                tgt_mask=tgt_mask,
-                tgt_padding_mask=tgt_padding_mask,
-                memory_padding_mask=src_padding_mask
-            )
+            output = self.model.decoder(tgt, memory, tgt_mask=tgt_mask, tgt_padding_mask=tgt_padding_mask,
+                memory_padding_mask=src_padding_mask)
 
             # Get next token prediction
             next_token_logits = output[:, -1, :]
@@ -393,19 +376,11 @@ class ArithmeticTransformerTrainer:
         train_char_accuracies = torch.tensor(self.train_char_accuracies) if self.train_char_accuracies else []
         val_char_accuracies = torch.tensor(self.val_char_accuracies) if self.val_char_accuracies else []
 
-        checkpoint = {
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'train_losses': train_losses,
-            'val_losses': val_losses,
-            'train_accuracies': train_accuracies,
-            'val_accuracies': val_accuracies,
-            'train_perplexities': train_perplexities,
-            'val_perplexities': val_perplexities,
-            'train_char_accuracies': train_char_accuracies,
-            'val_char_accuracies': val_char_accuracies,
-            'best_val_loss': float(self.best_val_loss)
-        }
+        checkpoint = {'model_state_dict': self.model.state_dict(), 'optimizer_state_dict': self.optimizer.state_dict(),
+            'train_losses': train_losses, 'val_losses': val_losses, 'train_accuracies': train_accuracies,
+            'val_accuracies': val_accuracies, 'train_perplexities': train_perplexities,
+            'val_perplexities': val_perplexities, 'train_char_accuracies': train_char_accuracies,
+            'val_char_accuracies': val_char_accuracies, 'best_val_loss': float(self.best_val_loss)}
         torch.save(checkpoint, self.checkpoint_dir / filename)
         print(f"Checkpoint saved to {self.checkpoint_dir / filename}")
 
@@ -491,44 +466,34 @@ def main():
     parser = argparse.ArgumentParser(description="Train Arithmetic Transformer")
 
     # Data arguments
-    parser.add_argument("--dataset_path", type=str, default="./datasets",
-                        help="Path to the dataset directory")
+    parser.add_argument("--dataset_path", type=str, default="./datasets", help="Path to the dataset directory")
 
     # Model arguments
-    parser.add_argument("--d_model", type=int, default=ArithmeticTransformerConfig.d_model,
-                        help="Embedding dimension")
+    parser.add_argument("--d_model", type=int, default=ArithmeticTransformerConfig.d_model, help="Embedding dimension")
     parser.add_argument("--num_encoder_layers", type=int, default=ArithmeticTransformerConfig.num_encoder_layers,
                         help="Number of encoder layers")
     parser.add_argument("--num_decoder_layers", type=int, default=ArithmeticTransformerConfig.num_decoder_layers,
                         help="Number of decoder layers")
     parser.add_argument("--num_heads", type=int, default=ArithmeticTransformerConfig.num_heads,
                         help="Number of attention heads")
-    parser.add_argument("--d_ff", type=int, default=ArithmeticTransformerConfig.d_ff,
-                        help="Feedforward dimension")
+    parser.add_argument("--d_ff", type=int, default=ArithmeticTransformerConfig.d_ff, help="Feedforward dimension")
     parser.add_argument("--max_seq_length", type=int, default=ArithmeticTransformerConfig.max_seq_length,
                         help="Maximum sequence length")
-    parser.add_argument("--dropout", type=float, default=ArithmeticTransformerConfig.dropout,
-                        help="Dropout rate")
+    parser.add_argument("--dropout", type=float, default=ArithmeticTransformerConfig.dropout, help="Dropout rate")
+    parser.add_argument('--pos_encoding_type', type=str, default=ArithmeticTransformerConfig.pos_encoding_type,
+                        help="Type of positional encoding to use (standard or adaptive)")
 
     # Training arguments
-    parser.add_argument("--batch_size", type=int, default=32,
-                        help="Batch size")
-    parser.add_argument("--learning_rate", type=float, default=1e-4,
-                        help="Learning rate")
-    parser.add_argument("--epochs", type=int, default=50,
-                        help="Number of epochs")
-    parser.add_argument("--patience", type=int, default=5,
-                        help="Early stopping patience")
-    parser.add_argument("--no_cuda", action="store_true",
-                        help="Disable CUDA")
-    parser.add_argument("--resume", type=str,
-                        help="Resume from checkpoint file")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--epochs", type=int, default=50, help="Number of epochs")
+    parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
+    parser.add_argument("--no_cuda", action="store_true", help="Disable CUDA")
+    parser.add_argument("--resume", type=str, help="Resume from checkpoint file")
 
     # Other arguments
-    parser.add_argument("--checkpoint_dir", type=str, default="checkpoints",
-                        help="Directory to save checkpoints")
-    parser.add_argument("--num_workers", type=int, default=4,
-                        help="Number of workers for data loading")
+    parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Directory to save checkpoints")
+    parser.add_argument("--num_workers", type=int, default=4, help="Number of workers for data loading")
 
     args = parser.parse_args()
 
@@ -540,13 +505,8 @@ def main():
     tokenizer = ArithmeticTokenizer(max_length=args.max_seq_length)
 
     # Create dataloaders
-    train_loader, val_loader, test_loader = create_dataloaders(
-        dataset_path=args.dataset_path,
-        tokenizer=tokenizer,
-        batch_size=args.batch_size,
-        max_length=args.max_seq_length,
-        num_workers=args.num_workers
-    )
+    train_loader, val_loader, test_loader = create_dataloaders(dataset_path=args.dataset_path, tokenizer=tokenizer,
+        batch_size=args.batch_size, max_length=args.max_seq_length, num_workers=args.num_workers)
 
     # Print dataset information
     print(f"Training batches: {len(train_loader)}")
@@ -556,16 +516,9 @@ def main():
         print(f"Test batches: {len(test_loader)}")
 
     # Initialize model
-    model = ArithmeticTransformer(
-        vocab_size=tokenizer.get_vocab_size(),
-        d_model=args.d_model,
-        num_encoder_layers=args.num_encoder_layers,
-        num_decoder_layers=args.num_decoder_layers,
-        num_heads=args.num_heads,
-        d_ff=args.d_ff,
-        max_seq_length=args.max_seq_length,
-        dropout=args.dropout
-    )
+    model = ArithmeticTransformer(vocab_size=tokenizer.get_vocab_size(), d_model=args.d_model,
+        num_encoder_layers=args.num_encoder_layers, num_decoder_layers=args.num_decoder_layers,
+        num_heads=args.num_heads, d_ff=args.d_ff, max_seq_length=args.max_seq_length, dropout=args.dropout, pos_encoding_type=args.pos_encoding_type)
 
     # Count and print model parameters
     total_params = sum(p.numel() for p in model.parameters())
@@ -581,16 +534,9 @@ def main():
     print(f"- Feed-forward dimension: {args.d_ff}")
 
     # Initialize trainer
-    trainer = ArithmeticTransformerTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        test_loader=test_loader,
-        lr=args.learning_rate,
-        device=device,
-        checkpoint_dir=args.checkpoint_dir
-    )
+    trainer = ArithmeticTransformerTrainer(model=model, tokenizer=tokenizer, train_loader=train_loader,
+        val_loader=val_loader, test_loader=test_loader, lr=args.learning_rate, device=device,
+        checkpoint_dir=args.checkpoint_dir)
 
     # Load checkpoint if provided
     if args.resume:

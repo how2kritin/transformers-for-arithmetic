@@ -46,7 +46,24 @@ class ArithmeticTransformerInference:
         # Create tokenizer
         tokenizer = ArithmeticTokenizer(max_length=max_seq_length)
 
-        # Initialize empty model
+        # Load the checkpoint first to check its structure
+        try:
+            # First try with weights_only=True (new default in PyTorch 2.6+)
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+        except Exception as e:
+            print(f"Error loading with weights_only=True: {e}")
+            print("Trying with weights_only=False (legacy mode)...")
+            # If that fails, try with weights_only=False (old behavior)
+            checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+        # Check if the checkpoint was saved with the old positional encoding
+        old_style_checkpoint = any('pos_encoder.pe' in key for key in checkpoint['model_state_dict'].keys())
+
+        # Initialize model with the appropriate positional encoding type
+        pos_encoding_type = 'standard' if old_style_checkpoint else 'adaptive'
+        print(f"Detected checkpoint format: Using {pos_encoding_type} positional encoding")
+
+        # Initialize empty model with the appropriate encoding type
         model = ArithmeticTransformer(
             vocab_size=tokenizer.get_vocab_size(),
             d_model=model_config.d_model,
@@ -55,7 +72,8 @@ class ArithmeticTransformerInference:
             num_heads=model_config.num_heads,
             d_ff=model_config.d_ff,
             max_seq_length=max_seq_length,
-            dropout=model_config.dropout
+            dropout=model_config.dropout,
+            pos_encoding_type=pos_encoding_type
         )
 
         # Load model weights

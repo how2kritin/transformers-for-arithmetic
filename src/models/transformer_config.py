@@ -7,39 +7,16 @@ class ArithmeticTransformerConfig:
     Contains hyperparameters for the transformer model and justification for choices.
     """
 
-    # Vocabulary size (based on tokenizer vocabulary)
-    # We need tokens for digits 0-9, operators +/-, special tokens, etc.
-    vocab_size = 16  # From the ArithmeticTokenizer class
-
-    # Model dimension (embedding size)
-    # Smaller than standard NLP transformers since our task is simpler
-    # and the vocabulary is much smaller than natural language
-    d_model = 128  # 128-dimensional embeddings
-
-    # Number of encoder and decoder layers
-    # Fewer than standard NLP transformers since arithmetic has less complex patterns
-    num_encoder_layers = 3  # 3 encoder layers
-    num_decoder_layers = 3  # 3 decoder layers
-
-    # Number of attention heads
-    # Multiple heads allow the model to focus on different parts of the sequence
-    # 8 heads split the 128-dim embedding into 16-dim per head, which is reasonable
+    # we need tokens for digits 0-9, operators +/-, special tokens, etc.
+    vocab_size = 16
+    d_model = 128
+    num_encoder_layers = 3
+    num_decoder_layers = 3
     num_heads = 8
-
-    # Feed-forward network dimension
-    # Standard practice is 4x the embedding dimension but for our simpler task,
-    # we can use a smaller multiple (e.g., 4x)
     d_ff = 512  # 4 * d_model
-
-    # Maximum sequence length
-    # Must be large enough for the longest arithmetic expression + result
-    # Expressions like "-999-999" plus special tokens would need ~10-12 tokens,
-    # but we set it higher for safety margin and potential generalization
     max_seq_length = 64
-
-    # Dropout probability
-    # Moderate dropout to prevent overfitting but not so high that learning is impaired
     dropout = 0.1
+    pos_encoding_type = 'adaptive'
 
     # Justification for hyperparameter choices:
     """

@@ -1,7 +1,8 @@
 import math
+from typing import Literal
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class PositionalEncoding(nn.Module):
@@ -48,6 +49,49 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+class AdaptivePositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_seq_length=64, dropout=0.1):
+        super(AdaptivePositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        self.d_model = d_model
+
+    def forward(self, x):
+        batch_size, seq_len, _ = x.shape
+
+        # generate position encoding dynamically based on sequence length
+        position = torch.arange(0, seq_len, dtype=torch.float, device=x.device).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, self.d_model, 2, device=x.device).float() * (-math.log(10000.0) / self.d_model))
+
+        pe = torch.zeros(seq_len, self.d_model, device=x.device)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).expand(batch_size, -1, -1)
+
+        return self.dropout(x + pe)
+
+
+# Create a factory function to get the appropriate positional encoding
+def get_positional_encoding(encoding_type, d_model, max_seq_length=64, dropout=0.1):
+    """Factory function to create the specified positional encoding.
+
+    Args:
+        encoding_type: String specifying the type of encoding ('standard' or 'adaptive')
+        d_model: The dimensionality of the embeddings
+        max_seq_length: Maximum sequence length
+        dropout: Dropout probability
+
+    Returns:
+        A positional encoding module
+    """
+    if encoding_type.lower() == 'standard':
+        return PositionalEncoding(d_model, max_seq_length, dropout)
+    elif encoding_type.lower() == 'adaptive':
+        return AdaptivePositionalEncoding(d_model, max_seq_length, dropout)
+    else:
+        raise ValueError(f"Unknown encoding type: {encoding_type}. Use 'standard' or 'adaptive'.")
+
+
 class EncoderLayer(nn.Module):
     """A single layer of the transformer encoder.
 
@@ -70,12 +114,8 @@ class EncoderLayer(nn.Module):
         self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
 
         # Feed-forward network
-        self.feed_forward = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model)
-        )
+        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Dropout(dropout),
+                                          nn.Linear(d_ff, d_model))
 
         # Layer normalization
         self.norm1 = nn.LayerNorm(d_model)
@@ -97,11 +137,7 @@ class EncoderLayer(nn.Module):
             Output tensor after self-attention and feed-forward
         """
         # Self-attention block with residual connection and layer norm
-        attn_output, _ = self.self_attn(
-            src, src, src,
-            attn_mask=src_mask,
-            key_padding_mask=padding_mask
-        )
+        attn_output, _ = self.self_attn(src, src, src, attn_mask=src_mask, key_padding_mask=padding_mask)
         src = src + self.dropout1(attn_output)
         src = self.norm1(src)
 
@@ -139,12 +175,8 @@ class DecoderLayer(nn.Module):
         self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
 
         # Feed-forward network
-        self.feed_forward = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model)
-        )
+        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Dropout(dropout),
+                                          nn.Linear(d_ff, d_model))
 
         # Layer normalization
         self.norm1 = nn.LayerNorm(d_model)
@@ -156,8 +188,7 @@ class DecoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
 
-    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None,
-                tgt_padding_mask=None, memory_padding_mask=None):
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, tgt_padding_mask=None, memory_padding_mask=None):
         """Process input through the decoder layer.
 
         Args:
@@ -172,20 +203,13 @@ class DecoderLayer(nn.Module):
             Output tensor after self-attention, cross-attention, and feed-forward
         """
         # Self-attention block with residual connection and layer norm
-        self_attn_output, _ = self.self_attn(
-            tgt, tgt, tgt,
-            attn_mask=tgt_mask,
-            key_padding_mask=tgt_padding_mask
-        )
+        self_attn_output, _ = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask, key_padding_mask=tgt_padding_mask)
         tgt = tgt + self.dropout1(self_attn_output)
         tgt = self.norm1(tgt)
 
         # Cross-attention block with residual connection and layer norm
-        cross_attn_output, _ = self.cross_attn(
-            tgt, memory, memory,
-            attn_mask=memory_mask,
-            key_padding_mask=memory_padding_mask
-        )
+        cross_attn_output, _ = self.cross_attn(tgt, memory, memory, attn_mask=memory_mask,
+                                               key_padding_mask=memory_padding_mask)
         tgt = tgt + self.dropout2(cross_attn_output)
         tgt = self.norm2(tgt)
 
@@ -203,7 +227,8 @@ class Encoder(nn.Module):
     Consists of an embedding layer, positional encoding, and multiple encoder layers.
     """
 
-    def __init__(self, vocab_size, d_model, num_layers, num_heads, d_ff, max_seq_length, dropout=0.1):
+    def __init__(self, vocab_size, d_model, num_layers, num_heads, d_ff, max_seq_length, dropout=0.1,
+                 pos_encoding_type: Literal['standard', 'adaptive'] = 'standard'):
         """Initialize the encoder.
 
         Args:
@@ -214,6 +239,7 @@ class Encoder(nn.Module):
             d_ff: Dimensionality of the feed-forward network
             max_seq_length: Maximum sequence length
             dropout: Dropout probability
+            pos_encoding_type: Type of positional encoding ('standard' or 'adaptive')
         """
         super(Encoder, self).__init__()
 
@@ -221,13 +247,10 @@ class Encoder(nn.Module):
         self.embedding = nn.Embedding(vocab_size, d_model)
 
         # Positional encoding
-        self.pos_encoder = PositionalEncoding(d_model, max_seq_length, dropout)
+        self.pos_encoder = get_positional_encoding(pos_encoding_type, d_model, max_seq_length, dropout)
 
         # Stack of encoder layers
-        self.layers = nn.ModuleList([
-            EncoderLayer(d_model, num_heads, d_ff, dropout)
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList([EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
 
         # Layer normalization
         self.norm = nn.LayerNorm(d_model)
@@ -263,7 +286,8 @@ class Decoder(nn.Module):
     Consists of an embedding layer, positional encoding, and multiple decoder layers.
     """
 
-    def __init__(self, vocab_size, d_model, num_layers, num_heads, d_ff, max_seq_length, dropout=0.1):
+    def __init__(self, vocab_size, d_model, num_layers, num_heads, d_ff, max_seq_length, dropout=0.1,
+                 pos_encoding_type='standard'):
         """Initialize the decoder.
 
         Args:
@@ -274,6 +298,7 @@ class Decoder(nn.Module):
             d_ff: Dimensionality of the feed-forward network
             max_seq_length: Maximum sequence length
             dropout: Dropout probability
+            pos_encoding_type: Type of positional encoding ('standard' or 'adaptive')
         """
         super(Decoder, self).__init__()
 
@@ -281,13 +306,10 @@ class Decoder(nn.Module):
         self.embedding = nn.Embedding(vocab_size, d_model)
 
         # Positional encoding
-        self.pos_encoder = PositionalEncoding(d_model, max_seq_length, dropout)
+        self.pos_encoder = get_positional_encoding(pos_encoding_type, d_model, max_seq_length, dropout)
 
         # Stack of decoder layers
-        self.layers = nn.ModuleList([
-            DecoderLayer(d_model, num_heads, d_ff, dropout)
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList([DecoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
 
         # Layer normalization
         self.norm = nn.LayerNorm(d_model)
@@ -295,8 +317,7 @@ class Decoder(nn.Module):
         # Output projection
         self.output_projection = nn.Linear(d_model, vocab_size)
 
-    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None,
-                tgt_padding_mask=None, memory_padding_mask=None):
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, tgt_padding_mask=None, memory_padding_mask=None):
         """Process input through the decoder.
 
         Args:
@@ -316,8 +337,7 @@ class Decoder(nn.Module):
 
         # Process through each decoder layer
         for layer in self.layers:
-            tgt = layer(tgt, memory, tgt_mask, memory_mask,
-                        tgt_padding_mask, memory_padding_mask)
+            tgt = layer(tgt, memory, tgt_mask, memory_mask, tgt_padding_mask, memory_padding_mask)
 
         # Apply final normalization
         tgt = self.norm(tgt)
@@ -334,9 +354,8 @@ class ArithmeticTransformer(nn.Module):
     An encoder-decoder transformer model for sequence-to-sequence arithmetic tasks.
     """
 
-    def __init__(self, vocab_size, d_model=128, num_encoder_layers=3,
-                 num_decoder_layers=3, num_heads=8, d_ff=512,
-                 max_seq_length=64, dropout=0.1):
+    def __init__(self, vocab_size, d_model=128, num_encoder_layers=3, num_decoder_layers=3, num_heads=8, d_ff=512,
+                 max_seq_length=64, dropout=0.1, pos_encoding_type='standard'):
         """Initialize the transformer model.
 
         Args:
@@ -348,20 +367,17 @@ class ArithmeticTransformer(nn.Module):
             d_ff: Dimensionality of the feed-forward network
             max_seq_length: Maximum sequence length
             dropout: Dropout probability
+            pos_encoding_type: Type of positional encoding ('standard' or 'adaptive')
         """
         super(ArithmeticTransformer, self).__init__()
 
         # Encoder
-        self.encoder = Encoder(
-            vocab_size, d_model, num_encoder_layers,
-            num_heads, d_ff, max_seq_length, dropout
-        )
+        self.encoder = Encoder(vocab_size, d_model, num_encoder_layers, num_heads, d_ff, max_seq_length, dropout,
+                               pos_encoding_type)
 
         # Decoder
-        self.decoder = Decoder(
-            vocab_size, d_model, num_decoder_layers,
-            num_heads, d_ff, max_seq_length, dropout
-        )
+        self.decoder = Decoder(vocab_size, d_model, num_decoder_layers, num_heads, d_ff, max_seq_length, dropout,
+                               pos_encoding_type)
 
         # Initialize parameters
         self._init_parameters()
@@ -425,11 +441,7 @@ class ArithmeticTransformer(nn.Module):
         memory = self.encoder(src, padding_mask=src_padding_mask)
 
         # Decode target sequence
-        output = self.decoder(
-            tgt, memory,
-            tgt_mask=tgt_mask,
-            tgt_padding_mask=tgt_padding_mask,
-            memory_padding_mask=src_padding_mask
-        )
+        output = self.decoder(tgt, memory, tgt_mask=tgt_mask, tgt_padding_mask=tgt_padding_mask,
+                              memory_padding_mask=src_padding_mask)
 
         return output
