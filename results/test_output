@@ -1,0 +1,10 @@
+Accuracy: 0.9960
+Character Accuracy: 0.9994
+Perplexity: 1.0021
+
+Total examples: 20000
+Correct predictions: 19919
+Incorrect predictions: 81
+
+Correct predictions saved to: test_output_correct.txt
+Incorrect predictions saved to: test_output_incorrect.txt

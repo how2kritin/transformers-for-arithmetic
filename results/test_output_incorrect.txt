@@ -1,0 +1,407 @@
+Example	Input	Target	Prediction
+------------------------------------------------------------
+Example 70:
+  Input: -3343552+93554
+  Target: -3249998
+  Prediction: -3259998
+
+Example 329:
+  Input: 79-172
+  Target: -93
+  Prediction: -13
+
+Example 506:
+  Input: 32575826+3967525661
+  Target: 4000101487
+  Prediction: 3000101487
+
+Example 508:
+  Input: -1769405888+900878847
+  Target: -868527041
+  Prediction: -868527011
+
+Example 602:
+  Input: 11-5
+  Target: 6
+  Prediction: 5
+
+Example 707:
+  Input: 12833-9853
+  Target: 2980
+  Prediction: 3980
+
+Example 908:
+  Input: -157699+76696
+  Target: -81003
+  Prediction: -71003
+
+Example 911:
+  Input: 267467-557435
+  Target: -289968
+  Prediction: -299968
+
+Example 1170:
+  Input: -761882126-17843
+  Target: -761899969
+  Prediction: -761999969
+
+Example 1563:
+  Input: -1007815398+8715859
+  Target: -999099539
+  Prediction: -199099539
+
+Example 1698:
+  Input: 1479068-888894
+  Target: 590174
+  Prediction: 690174
+
+Example 1795:
+  Input: -2070891+24748
+  Target: -2046143
+  Prediction: -1046143
+
+Example 1880:
+  Input: -816768876+98877
+  Target: -816669999
+  Prediction: -816670999
+
+Example 2204:
+  Input: -484788967+884367698
+  Target: 399578731
+  Prediction: 499578731
+
+Example 2510:
+  Input: 549699483-613495540
+  Target: -63796057
+  Prediction: -63795067
+
+Example 2951:
+  Input: -2301-2577671
+  Target: -2579972
+  Prediction: -2589972
+
+Example 3138:
+  Input: -12915+6583
+  Target: -6332
+  Prediction: -5332
+
+Example 3578:
+  Input: 11-21
+  Target: -10
+  Prediction: -00
+
+Example 3855:
+  Input: -169549+79639
+  Target: -89910
+  Prediction: -99910
+
+Example 4241:
+  Input: -4988986778+4986462558
+  Target: -2524220
+  Prediction: -25242200
+
+Example 4496:
+  Input: -3767804698+5655699264
+  Target: 1887894566
+  Prediction: 1887884566
+
+Example 4576:
+  Input: -497838+557957
+  Target: 60119
+  Prediction: 60019
+
+Example 4621:
+  Input: -8873995476+9641978255
+  Target: 767982779
+  Prediction: 777982789
+
+Example 5231:
+  Input: -107+98
+  Target: -9
+  Prediction: -39
+
+Example 5403:
+  Input: 902358875-4907258168
+  Target: -4004899293
+  Prediction: -3004899293
+
+Example 5570:
+  Input: 30-40
+  Target: -10
+  Prediction: -00
+
+Example 5652:
+  Input: 99-181
+  Target: -82
+  Prediction: -89
+
+Example 5744:
+  Input: 22508069-8462
+  Target: 22499607
+  Prediction: 22599607
+
+Example 5886:
+  Input: 4486+62065539
+  Target: 62070025
+  Prediction: 62060025
+
+Example 6408:
+  Input: 5563387+14384020
+  Target: 19947407
+  Prediction: 29947407
+
+Example 6519:
+  Input: -13999+9995
+  Target: -4004
+  Prediction: -5004
+
+Example 6589:
+  Input: 188-327
+  Target: -139
+  Prediction: -339
+
+Example 6636:
+  Input: -151+71
+  Target: -80
+  Prediction: -70
+
+Example 6650:
+  Input: -17478+9533
+  Target: -7945
+  Prediction: -8945
+
+Example 7017:
+  Input: -114279+92821
+  Target: -21458
+  Prediction: -31458
+
+Example 7029:
+  Input: 8661+6291392
+  Target: 6300053
+  Prediction: 6200053
+
+Example 7261:
+  Input: -4-594899999
+  Target: -594900003
+  Prediction: -594800003
+
+Example 8030:
+  Input: 900989-996
+  Target: 899993
+  Prediction: 909993
+
+Example 8133:
+  Input: -449303789+831673958
+  Target: 382370169
+  Prediction: 382360169
+
+Example 8499:
+  Input: -6564593+7555494
+  Target: 990901
+  Prediction: 990801
+
+Example 8625:
+  Input: 854547-953466
+  Target: -98919
+  Prediction: -98829
+
+Example 9013:
+  Input: -121357258+53599197
+  Target: -67758061
+  Prediction: -77758061
+
+Example 9047:
+  Input: -15+6
+  Target: -9
+  Prediction: -8
+
+Example 9680:
+  Input: 8977448-9635193
+  Target: -657745
+  Prediction: -657645
+
+Example 9808:
+  Input: -443-7119558
+  Target: -7120001
+  Prediction: -7110001
+
+Example 9884:
+  Input: -73986567+73983545
+  Target: -3022
+  Prediction: -1302
+
+Example 10537:
+  Input: -464921189+514941498
+  Target: 50020309
+  Prediction: 40029309
+
+Example 10544:
+  Input: 6965659+94364332
+  Target: 101329991
+  Prediction: 101339991
+
+Example 10649:
+  Input: -765149970+965146974
+  Target: 199997004
+  Prediction: 209996004
+
+Example 10668:
+  Input: 997+1609008
+  Target: 1610005
+  Prediction: 1600005
+
+Example 11386:
+  Input: -366167996+366017974
+  Target: -150022
+  Prediction: -150002
+
+Example 11565:
+  Input: 7595597959+218402051
+  Target: 7814000010
+  Prediction: 7813900010
+
+Example 11963:
+  Input: -1254+653
+  Target: -601
+  Prediction: -501
+
+Example 12139:
+  Input: -747-3668801252
+  Target: -3668801999
+  Prediction: -3668802999
+
+Example 12678:
+  Input: -7868549203+7206
+  Target: -7868541997
+  Prediction: -7868542997
+
+Example 12694:
+  Input: 3917699-5303339
+  Target: -1385640
+  Prediction: -3385640
+
+Example 12933:
+  Input: 2334929927-71629928
+  Target: 2263299999
+  Prediction: 2263309999
+
+Example 13139:
+  Input: -102751+84931
+  Target: -17820
+  Prediction: -37820
+
+Example 13719:
+  Input: -977447889+977306144
+  Target: -141745
+  Prediction: -1067555
+
+Example 13798:
+  Input: -86569913+94799918
+  Target: 8230005
+  Prediction: 8220005
+
+Example 13811:
+  Input: 182-454
+  Target: -272
+  Prediction: -372
+
+Example 14044:
+  Input: -8399477+304139537
+  Target: 295740060
+  Prediction: 290749060
+
+Example 14126:
+  Input: -157586-105412
+  Target: -262998
+  Prediction: -263998
+
+Example 14138:
+  Input: 599068-599028
+  Target: 40
+  Prediction: 140
+
+Example 14397:
+  Input: -91570-7437748420
+  Target: -7437839990
+  Prediction: -7437849990
+
+Example 14621:
+  Input: -9179124967+9159001706
+  Target: -20123261
+  Prediction: -20113261
+
+Example 14642:
+  Input: -433033-799587022
+  Target: -800020055
+  Prediction: -700020055
+
+Example 15468:
+  Input: 3315599-8313066
+  Target: -4997467
+  Prediction: -5997467
+
+Example 15698:
+  Input: 892958719-9850626749
+  Target: -8957668030
+  Prediction: -8567668230
+
+Example 15832:
+  Input: 181790+8942318206
+  Target: 8942499996
+  Prediction: 8942599996
+
+Example 15850:
+  Input: -472334-966027199
+  Target: -966499533
+  Prediction: -966599533
+
+Example 16924:
+  Input: 19943521-39944598
+  Target: -20001077
+  Prediction: -10001077
+
+Example 17364:
+  Input: -1252+837
+  Target: -415
+  Prediction: -315
+
+Example 18000:
+  Input: 1586-896
+  Target: 690
+  Prediction: 790
+
+Example 18066:
+  Input: 39995976+9460022792
+  Target: 9500018768
+  Prediction: 9400018768
+
+Example 18311:
+  Input: 287986-463875
+  Target: -175889
+  Prediction: -775889
+
+Example 18320:
+  Input: 7676656245+6122718355
+  Target: 13799374600
+  Prediction: 13899374600
+
+Example 18872:
+  Input: 57837-83835
+  Target: -25998
+  Prediction: -26998
+
+Example 18956:
+  Input: 100-11
+  Target: 89
+  Prediction: 99
+
+Example 18994:
+  Input: 27-43
+  Target: -16
+  Prediction: -66
+
+Example 19087:
+  Input: 2948893585+51424212
+  Target: 3000317797
+  Prediction: 2000317797
+
