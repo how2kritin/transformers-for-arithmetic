@@ -50,7 +50,7 @@ class PositionalEncoding(nn.Module):
 
 
 class AdaptivePositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_seq_length=64, dropout=0.1):
+    def __init__(self, d_model, dropout=0.1):
         super(AdaptivePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.d_model = d_model
@@ -87,7 +87,7 @@ def get_positional_encoding(encoding_type, d_model, max_seq_length=64, dropout=0
     if encoding_type.lower() == 'standard':
         return PositionalEncoding(d_model, max_seq_length, dropout)
     elif encoding_type.lower() == 'adaptive':
-        return AdaptivePositionalEncoding(d_model, max_seq_length, dropout)
+        return AdaptivePositionalEncoding(d_model, dropout)
     else:
         raise ValueError(f"Unknown encoding type: {encoding_type}. Use 'standard' or 'adaptive'.")
 
