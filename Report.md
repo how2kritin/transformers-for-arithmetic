@@ -231,9 +231,6 @@ level.
 The increased model capacity allowed better memorization of training patterns but not better abstraction of the
 underlying arithmetic rules.
 
-The much higher generalization perplexity (301.15 vs 105.80) suggests the larger model is actually more confident in its
-wrong answers for out-of-distribution examples, indicating possible overfitting.
-
 ### Changing the number of encoder and decoder layers
 
 I doubled the number of encoder and decoder layers (from 3 to 6).
@@ -258,13 +255,15 @@ Doubling the network depth provided the greatest improvement in test accuracy am
 
 The model achieved the highest in-distribution character accuracy (99.52%).
 
-While it still struggled with full sequence accuracy on the generalization set, it showed modest improvements in
+While it still struggled with full sequence accuracy on the generalization set, it showed slight improvements in
 character-level accuracy.
 
 This suggests deeper networks can better learn the patterns within the training distribution but still face challenges
-with systematic generalization.
+with proper generalization.
 
 ### General findings
+
+All my changes improved accuracy for in-distribution sequence lengths, though this is not what we want. We still want a good, generalizable model.
 
 In general, deeper and wider networks provided better in-distribution performance, but this was at the cost of training
 time and potentially increased overfitting as well.
@@ -277,5 +276,17 @@ may not be sufficient for systematic generalization in arithmetic tasks.
 ---
 
 ## Discussion
+
+After all this analysis, it's clear that our transformer model hasn't really "learned" to do arithmetic. What it's done instead is essentially memorize patterns it saw during training. The huge performance gap between the test set (99.60% accuracy for exact match) and generalization set (5.58% accuracy for exact match) makes this extremely obvious.
+
+The model is great at spitting out answers for number lengths it's seen before, but completely falls apart when faced with longer numbers.Then again, are we supposed to be surprised? I'd say not at all, since transformers are pattern-matching machines, and they're just doing what they do best: finding statistical regularities in the training data.
+
+The ablation studies further confirm this. Making the network deeper or wider improved in-distribution performance, but did basically nothing for generalization. The deeper model (more layers) performed better than the wider one, but neither configuration was better than the model that I started out with, in the generalization problem. Perhaps no amount of hyperparameter tuning can fix the most fundamental issue here: the model is memorizing, not learning.
+
+When we compare this to how humans do arithmetic, the differences are stark. We learn a generalizable algorithm that works regardless of number length. Once we understand carrying and borrowing, we can add or subtract numbers of any length (though we are kinda slow at processing larger numbers). We also process digits sequentially (usually right-to-left), explicitly tracking carries as we go.
+
+The transformer meanwhile, seems as though it attempts to process the entire expression at once, looking for patterns it recognizes from training. It has no explicit procedure and no concept of place value that generalizes beyond what it's seen. Its attention mechanism theoretically gives it access to all input tokens simultaneously, but it still can't effectively handle the long-range dependencies needed for multi-digit arithmetic.
+
+Honestly though, why even are we using transformers for this task? Just use the `add` and `sub` assembly instructions instead, which are extremely effective at this task. Why introduce neural nets into an already deterministically solvable task?
 
 ---
