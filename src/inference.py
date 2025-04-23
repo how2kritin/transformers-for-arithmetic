@@ -346,22 +346,59 @@ def main():
 
         # Save predictions if output file is provided
         if args.output_file:
-            with open(args.output_file, 'w') as f:
+            # Create base filename without extension
+            base_filename = os.path.splitext(args.output_file)[0]
+            correct_filename = f"{base_filename}_correct.txt"
+            incorrect_filename = f"{base_filename}_incorrect.txt"
+            summary_filename = args.output_file
+
+            # Count of correct and incorrect predictions
+            correct_count = 0
+            incorrect_count = 0
+
+            # Write summary file with overall metrics
+            with open(summary_filename, 'w') as f:
                 f.write(f"Accuracy: {results['accuracy']:.4f}\n")
                 f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
                 f.write(f"Perplexity: {results['perplexity']:.4f}\n\n")
+                f.write(f"Total examples: {results['num_samples']}\n")
+
+            # Write correct predictions to one file
+            with open(correct_filename, 'w') as correct_file, open(incorrect_filename, 'w') as incorrect_file:
+                # Write headers to both files
+                for file in [correct_file, incorrect_file]:
+                    file.write("Example\tInput\tTarget\tPrediction\n")
+                    file.write("-" * 60 + "\n")
 
                 # Write individual examples
                 for i, (inp, target, pred) in enumerate(zip(
                         results['inputs'],
                         results['targets'],
                         results['predictions'])):
-                    f.write(f"Example {i + 1}:\n")
-                    f.write(f"  Input: {inp}\n")
-                    f.write(f"  Target: {target}\n")
-                    f.write(f"  Prediction: {pred}\n")
-                    f.write(f"  Correct: {pred.strip() == target.strip()}\n\n")
-            print(f"Results saved to {args.output_file}")
+
+                    is_correct = pred.strip() == target.strip()
+                    example_text = f"Example {i + 1}:\n"
+                    example_text += f"  Input: {inp}\n"
+                    example_text += f"  Target: {target}\n"
+                    example_text += f"  Prediction: {pred}\n\n"
+
+                    if is_correct:
+                        correct_file.write(example_text)
+                        correct_count += 1
+                    else:
+                        incorrect_file.write(example_text)
+                        incorrect_count += 1
+
+            # Update summary file with count information
+            with open(summary_filename, 'a') as f:
+                f.write(f"Correct predictions: {correct_count}\n")
+                f.write(f"Incorrect predictions: {incorrect_count}\n\n")
+                f.write(f"Correct predictions saved to: {os.path.basename(correct_filename)}\n")
+                f.write(f"Incorrect predictions saved to: {os.path.basename(incorrect_filename)}\n")
+
+            print(f"Results summary saved to {summary_filename}")
+            print(f"Correct predictions ({correct_count}) saved to {correct_filename}")
+            print(f"Incorrect predictions ({incorrect_count}) saved to {incorrect_filename}")
 
     elif args.input:
         # Single input

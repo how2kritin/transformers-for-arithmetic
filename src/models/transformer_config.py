@@ -16,7 +16,7 @@ class ArithmeticTransformerConfig:
     d_ff = 512  # 4 * d_model
     max_seq_length = 64
     dropout = 0.1
-    pos_encoding_type = 'adaptive'
+    pos_encoding_type = 'standard'
 
     # Justification for hyperparameter choices:
     """
