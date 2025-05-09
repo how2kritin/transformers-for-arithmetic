@@ -172,15 +172,14 @@ class ArithmeticTransformerTrainer:
         total_sequences = 0
         total_chars = 0
 
-        # Add tqdm progress bar for batches
         pbar = tqdm(self.train_loader, desc="Training", leave=False)
         for batch in pbar:
-            # Extract input_ids and labels from batch
+            # extract input_ids and labels from batch
             input_ids = batch['input_ids'].to(self.device)
             labels = batch['labels'].to(self.device)
 
-            # Create input/output for teacher forcing
-            # Use input sequences for encoder and target sequences (shifted) for decoder
+            # create input/output for teacher forcing
+            # use input sequences for encoder and target sequences (shifted) for decoder
             src = input_ids
             tgt = labels[:, :-1]  # Remove last token for decoder input
             tgt_output = labels[:, 1:]  # Remove first token (usually SOS) for targets
