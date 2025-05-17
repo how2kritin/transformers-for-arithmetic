@@ -50,8 +50,6 @@ while having sufficient capacity to learn arithmetic operations.
 
 ### Best model accuracy
 
-![training_history.png](checkpoints/checkpoints_200k_65_1to10/training_history.png)
-
 ```
 Evaluation on datasets/dataset_test.csv:  
   Loss: 0.0021  
