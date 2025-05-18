@@ -1,25 +1,25 @@
 import argparse
-import torch
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
 import os
-from torch.utils.data import DataLoader, SequentialSampler
 
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, SequentialSampler
+from tqdm import tqdm
+
+from src.data.processing.dataset import ArithmeticDataset
 from src.data.processing.tokenizer import ArithmeticTokenizer
 from src.models.transformer import ArithmeticTransformer
 from src.models.transformer_config import ArithmeticTransformerConfig
-from src.data.processing.dataset import ArithmeticDataset
 
 
 class ArithmeticTransformerInference:
     def __init__(
             self,
-            model,
-            tokenizer,
-            device="cuda" if torch.cuda.is_available() else "cpu"
+            model: ArithmeticTransformer,
+            tokenizer: ArithmeticTokenizer,
+            device: str = "cuda" if torch.cuda.is_available() else "cpu"
     ):
-        """Initialize the inference module for ArithmeticTransformer."""
+        """initialize the inference module for ArithmeticTransformer."""
         self.model = model.to(device)
         self.tokenizer = tokenizer
         self.device = device
@@ -27,43 +27,42 @@ class ArithmeticTransformerInference:
         self.sos_token = tokenizer.get_sos_token_id()
         self.eos_token = tokenizer.get_eos_token_id()
 
-        # Ensure model is in evaluation mode
+        # ensure model is in evaluation mode
         self.model.eval()
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_path, model_config=None, max_seq_length=None, device=None):
-        """Create inference module from a checkpoint file."""
+    def from_checkpoint(cls, checkpoint_path: str, model_config: ArithmeticTransformerConfig = None,
+                        max_seq_length: int = None, device: str = None):
+        """create inference module from a checkpoint file."""
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Load model configuration
+        # load model configuration
         if model_config is None:
             model_config = ArithmeticTransformerConfig()
 
         if max_seq_length is None:
             max_seq_length = model_config.max_seq_length
 
-        # Create tokenizer
+        # create tokenizer
         tokenizer = ArithmeticTokenizer(max_length=max_seq_length)
 
-        # Load the checkpoint first to check its structure
+        # load the checkpoint first to check its structure (try with and without weights_only)
         try:
-            # First try with weights_only=True (new default in PyTorch 2.6+)
             checkpoint = torch.load(checkpoint_path, map_location=device)
         except Exception as e:
             print(f"Error loading with weights_only=True: {e}")
             print("Trying with weights_only=False (legacy mode)...")
-            # If that fails, try with weights_only=False (old behavior)
             checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-        # Check if the checkpoint was saved with the old positional encoding
+        # check if the checkpoint was saved with the old positional encoding (backward compatibility with my old model type)
         old_style_checkpoint = any('pos_encoder.pe' in key for key in checkpoint['model_state_dict'].keys())
 
-        # Initialize model with the appropriate positional encoding type
+        # initialize model with the appropriate positional encoding type
         pos_encoding_type = 'standard' if old_style_checkpoint else 'adaptive'
         print(f"Detected checkpoint format: Using {pos_encoding_type} positional encoding")
 
-        # Initialize empty model with the appropriate encoding type
+        # initialize empty model with the appropriate encoding type
         model = ArithmeticTransformer(
             vocab_size=tokenizer.get_vocab_size(),
             d_model=model_config.d_model,
@@ -76,52 +75,42 @@ class ArithmeticTransformerInference:
             pos_encoding_type=pos_encoding_type
         )
 
-        # Load model weights
-        try:
-            # First try with weights_only=True (new default in PyTorch 2.6+)
-            checkpoint = torch.load(checkpoint_path, map_location=device)
-        except Exception as e:
-            print(f"Error loading with weights_only=True: {e}")
-            print("Trying with weights_only=False (legacy mode)...")
-            # If that fails, try with weights_only=False (old behavior)
-            checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-
         model.load_state_dict(checkpoint['model_state_dict'])
 
         print(f"Model loaded from checkpoint: {checkpoint_path}")
 
         return cls(model, tokenizer, device)
 
-    def predict_single(self, input_text, max_len=None):
-        """Generate prediction for a single input."""
+    def predict_single(self, input_text: str, max_len: int = None):
+        """generate prediction for a single input."""
         if max_len is None:
             max_len = self.tokenizer.max_length
 
-        # Tokenize input
+        # tokenize input
         encoded = self.tokenizer.encode(input_text, padding='max_length')
         src = torch.tensor([encoded['input_ids']], dtype=torch.long, device=self.device)
 
         self.model.eval()
 
-        # Create src padding mask
+        # create src padding mask
         src_padding_mask = self.model.create_padding_mask(src, self.pad_idx).to(self.device)
 
-        # Encode source sequence
+        # encode source sequence
         memory = self.model.encoder(src, padding_mask=src_padding_mask)
 
-        # Initialize target sequence with SOS token
+        # initialize target sequence with SOS token
         tgt = torch.full((1, 1), self.sos_token, dtype=torch.long, device=self.device)
 
-        # Generate sequence
+        # generate sequence
         for i in range(max_len - 1):
-            # Create target padding mask
+            # create target padding mask
             tgt_padding_mask = self.model.create_padding_mask(tgt, self.pad_idx).to(self.device)
 
-            # Create causal mask
+            # create causal mask
             tgt_len = tgt.size(1)
             tgt_mask = self.model.generate_square_subsequent_mask(tgt_len).to(self.device)
 
-            # Decode
+            # decode
             output = self.model.decoder(
                 tgt, memory,
                 tgt_mask=tgt_mask,
@@ -129,43 +118,43 @@ class ArithmeticTransformerInference:
                 memory_padding_mask=src_padding_mask
             )
 
-            # Get next token prediction
+            # get next token prediction
             next_token_logits = output[:, -1, :]
             next_token = next_token_logits.argmax(dim=1, keepdim=True)
 
-            # Concatenate with target sequence
+            # concatenate with target sequence
             tgt = torch.cat([tgt, next_token], dim=1)
 
-            # Check if we've generated an EOS token
+            # check if we've generated an EOS token
             if next_token.item() == self.eos_token:
                 break
 
-        # Find the position of EOS token, if any
+        # find the position of EOS token, if any
         eos_pos = (tgt[0] == self.eos_token).nonzero(as_tuple=True)[0]
         if len(eos_pos) > 0:
-            # Only keep tokens up to the first EOS
-            pred_tokens = tgt[0, 1:eos_pos[0]].cpu().numpy().tolist()  # Skip SOS token
+            # only keep tokens up to the first EOS
+            pred_tokens = tgt[0, 1:eos_pos[0]].cpu().numpy().tolist()  # skip SOS token
         else:
-            # Keep all tokens if no EOS is found
-            pred_tokens = tgt[0, 1:].cpu().numpy().tolist()  # Skip SOS token
+            # keep all tokens if no EOS is found
+            pred_tokens = tgt[0, 1:].cpu().numpy().tolist()  # skip SOS token
 
-        # Convert tokens to text
+        # convert tokens to text
         pred_text = self.tokenizer.decode(pred_tokens)
         return pred_text
 
-    def evaluate_csv_file_faster(self, csv_file, max_len=None, batch_size=32, num_workers=4):
-        """Evaluate the model on data from a CSV file using parallel batch processing."""
+    def evaluate_csv_file_faster(self, csv_file: str, max_len: int = None, batch_size: int = 32, num_workers: int = 4):
+        """evaluate the model on data from a CSV file using parallel batch processing."""
         if max_len is None:
             max_len = self.tokenizer.max_length
 
-        # Create a dataset directly using ArithmeticDataset
+        # create a dataset directly using ArithmeticDataset
         dataset = ArithmeticDataset(
             csv_file=csv_file,
             tokenizer=self.tokenizer,
             max_length=max_len
         )
 
-        # Create dataloader for efficient batch processing
+        # create dataloader for efficient batch processing
         dataloader = DataLoader(
             dataset,
             batch_size=batch_size,
@@ -177,10 +166,10 @@ class ArithmeticTransformerInference:
         print(f"Loaded {len(dataset)} samples from {csv_file}")
         print(f"Processing in {len(dataloader)} batches")
 
-        # Ensure model is in evaluation mode
+        # ensure model is in evaluation mode
         self.model.eval()
 
-        # Initialize metrics tracking
+        # initialize metrics tracking
         total_loss = 0
         all_correct_sequences = 0
         all_correct_chars = 0
@@ -190,20 +179,19 @@ class ArithmeticTransformerInference:
         all_inputs = []
         all_targets = []
 
-        # Set up criterion
+        # set up criterion
         criterion = torch.nn.CrossEntropyLoss(ignore_index=self.pad_idx)
 
         with torch.no_grad():
-            # Process batches with tqdm progress bar
             pbar = tqdm(dataloader, desc="Evaluating")
             for batch in pbar:
-                # Extract input_ids and labels from batch
+                # extract input_ids and labels from batch
                 input_ids = batch['input_ids'].to(self.device)
                 labels = batch['labels'].to(self.device)
 
-                # Store original inputs and targets for reporting
+                # store original inputs and targets for reporting
                 for i in range(input_ids.size(0)):
-                    # Get tokens up to padding or EOS
+                    # get tokens up to padding or EOS
                     input_tokens = input_ids[i].cpu().numpy().tolist()
                     eos_pos = input_tokens.index(self.eos_token) if self.eos_token in input_tokens else -1
                     pad_pos = input_tokens.index(self.pad_idx) if self.pad_idx in input_tokens else len(input_tokens)
@@ -211,72 +199,72 @@ class ArithmeticTransformerInference:
                     input_text = self.tokenizer.decode(input_tokens[:end_pos])
                     all_inputs.append(input_text)
 
-                    # Get target tokens up to padding or EOS
+                    # get target tokens up to padding or EOS
                     target_tokens = labels[i].cpu().numpy().tolist()
                     eos_pos = target_tokens.index(self.eos_token) if self.eos_token in target_tokens else -1
                     pad_pos = target_tokens.index(self.pad_idx) if self.pad_idx in target_tokens else len(target_tokens)
                     end_pos = min(eos_pos if eos_pos != -1 else len(target_tokens), pad_pos)
-                    target_text = self.tokenizer.decode(target_tokens[1:end_pos])  # Skip SOS token
+                    target_text = self.tokenizer.decode(target_tokens[1:end_pos])  # skip SOS token
                     all_targets.append(target_text)
 
-                # Create input/output for teacher forcing evaluation
+                # create input/output for teacher forcing evaluation
                 src = input_ids
-                tgt = labels[:, :-1]  # Remove last token for decoder input
-                tgt_output = labels[:, 1:]  # Remove first token (SOS) for targets
+                tgt = labels[:, :-1]  # remove last token for decoder input
+                tgt_output = labels[:, 1:]  # remove first token (SOS) for targets
 
-                # Forward pass
+                # forward pass
                 outputs = self.model(src, tgt)
 
-                # Reshape for loss calculation
+                # reshape for loss calculation
                 batch_size_current, seq_len, vocab_size = outputs.shape
                 outputs_flat = outputs.contiguous().view(batch_size_current * seq_len, vocab_size)
                 tgt_output_flat = tgt_output.contiguous().view(-1)
 
-                # Calculate loss
+                # calculate loss
                 loss = criterion(outputs_flat, tgt_output_flat)
                 current_loss = loss.item()
                 total_loss += current_loss
 
-                # Reshape back for accuracy calculation
+                # reshape back for accuracy calculation
                 outputs = outputs.view(batch_size_current, seq_len, vocab_size)
                 tgt_output = tgt_output.view(batch_size_current, seq_len)
 
-                # Calculate predictions
+                # calculate predictions
                 predictions = outputs.argmax(dim=2)
 
-                # Store predictions for reporting
+                # store predictions for reporting
                 for i in range(predictions.size(0)):
                     pred_tokens = predictions[i].cpu().numpy().tolist()
                     mask = (tgt_output[i] != self.pad_idx).cpu().numpy()
-                    # Get only valid tokens (before padding)
+
+                    # get only valid tokens (before padding)
                     valid_length = sum(mask)
                     valid_pred_tokens = [t for t, m in zip(pred_tokens[:valid_length], mask[:valid_length]) if m]
                     pred_text = self.tokenizer.decode(valid_pred_tokens)
                     all_predictions.append(pred_text)
 
-                # Calculate metrics
+                # calculate metrics
                 mask = (tgt_output != self.pad_idx)
 
-                # Exact match (entire sequence correct)
+                # exact match (entire sequence correct)
                 correct_sequences = ((predictions == tgt_output) | ~mask).all(dim=1).sum().item()
                 all_correct_sequences += correct_sequences
                 total_sequences += batch_size_current
 
-                # Character-level accuracy
+                # character-level accuracy
                 correct_chars = ((predictions == tgt_output) & mask).sum().item()
                 total_chars += mask.sum().item()
                 all_correct_chars += correct_chars
 
-                # Update progress bar
+                # update progress bar
                 pbar.set_postfix(loss=f"{current_loss:.4f}")
 
-        # Calculate final metrics
+        # calculate final metrics
         avg_loss = total_loss / len(dataloader)
         accuracy = all_correct_sequences / total_sequences if total_sequences > 0 else 0
         char_accuracy = all_correct_chars / total_chars if total_chars > 0 else 0
         perplexity = np.exp(avg_loss)
 
-        # Print results
         print(f"Evaluation on {csv_file}:")
         print(f"  Loss: {avg_loss:.4f}")
         print(f"  Accuracy: {accuracy:.4f}")
@@ -296,7 +284,7 @@ class ArithmeticTransformerInference:
 
 
 def main():
-    """Run inference with a trained arithmetic transformer model."""
+    """run inference with a trained arithmetic transformer model."""
     parser = argparse.ArgumentParser(description="Run inference with Arithmetic Transformer")
 
     parser.add_argument("--checkpoint", type=str, required=True,
@@ -314,28 +302,28 @@ def main():
     parser.add_argument("--no_cuda", action="store_true",
                         help="Disable CUDA")
     parser.add_argument("--num_workers", type=int, default=4,
-                        help="Number of workers for data loading in fast evaluation mode")
+                        help="Number of workers for data loading")
 
     args = parser.parse_args()
 
-    # Check for valid input options
+    # check for valid input options
     if not args.input and not args.csv_file:
         parser.error("At least one of --input or --csv_file must be provided")
 
-    # Set device
+    # set device
     device = torch.device("cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda")
     print(f"Using device: {device}")
 
-    # Load model for inference
+    # load model for inference
     inference_model = ArithmeticTransformerInference.from_checkpoint(
         checkpoint_path=args.checkpoint,
         max_seq_length=args.max_length,
         device=device
     )
 
-    # Perform inference based on input type
+    # perform inference based on input type
     if args.csv_file:
-        # Use a specific CSV file with fast_eval by default
+        # use a specific CSV file
         print(f"Evaluating model on {args.csv_file}...")
         results = inference_model.evaluate_csv_file_faster(
             csv_file=args.csv_file,
@@ -344,33 +332,33 @@ def main():
             num_workers=args.num_workers
         )
 
-        # Save predictions if output file is provided
+        # save predictions if output file is provided
         if args.output_file:
-            # Create base filename without extension
+            # create base filename without extension
             base_filename = os.path.splitext(args.output_file)[0]
             correct_filename = f"{base_filename}_correct.txt"
             incorrect_filename = f"{base_filename}_incorrect.txt"
             summary_filename = args.output_file
 
-            # Count of correct and incorrect predictions
+            # count of correct and incorrect predictions
             correct_count = 0
             incorrect_count = 0
 
-            # Write summary file with overall metrics
+            # write summary file with overall metrics
             with open(summary_filename, 'w') as f:
                 f.write(f"Accuracy: {results['accuracy']:.4f}\n")
                 f.write(f"Character Accuracy: {results['char_accuracy']:.4f}\n")
                 f.write(f"Perplexity: {results['perplexity']:.4f}\n\n")
                 f.write(f"Total examples: {results['num_samples']}\n")
 
-            # Write correct predictions to one file
+            # write correct predictions to one file
             with open(correct_filename, 'w') as correct_file, open(incorrect_filename, 'w') as incorrect_file:
-                # Write headers to both files
+                # write headers to both files
                 for file in [correct_file, incorrect_file]:
                     file.write("Example\tInput\tTarget\tPrediction\n")
                     file.write("-" * 60 + "\n")
 
-                # Write individual examples
+                # write individual examples
                 for i, (inp, target, pred) in enumerate(zip(
                         results['inputs'],
                         results['targets'],
@@ -389,7 +377,7 @@ def main():
                         incorrect_file.write(example_text)
                         incorrect_count += 1
 
-            # Update summary file with count information
+            # update summary file with count information
             with open(summary_filename, 'a') as f:
                 f.write(f"Correct predictions: {correct_count}\n")
                 f.write(f"Incorrect predictions: {incorrect_count}\n\n")
@@ -401,7 +389,7 @@ def main():
             print(f"Incorrect predictions ({incorrect_count}) saved to {incorrect_filename}")
 
     elif args.input:
-        # Single input
+        # single input
         prediction = inference_model.predict_single(args.input, max_len=args.max_length)
         print(f"Input: {args.input}")
         print(f"Prediction: {prediction}")

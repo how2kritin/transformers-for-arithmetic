@@ -1,13 +1,8 @@
-"""Configuration for the Arithmetic Transformer model."""
-
-
 class ArithmeticTransformerConfig:
-    """Configuration for the Arithmetic Transformer model.
-
-    Contains hyperparameters for the transformer model and justification for choices.
+    """configuration for the transformer. contains default hyperparams.
     """
 
-    # we need tokens for digits 0-9, operators +/-, special tokens, etc.
+    # vocab size is 16, as we need tokens for digits 0-9, operators +/-, special tokens, etc. check the tokenizer at src/data/processing/tokenizer.py.
     vocab_size = 16
     d_model = 128
     num_encoder_layers = 3

@@ -1,14 +1,16 @@
+from typing import Literal
+
 import torch
 
 
 class ArithmeticTokenizer:
-    """custom tokenizer for arithmetic expressions.
+    """tokenizer for arithmetic expressions.
 
     this class provides a simple character-level tokenizer
     tailored for arithmetic expressions.
     """
 
-    def __init__(self, max_length=64):
+    def __init__(self, max_length: int = 64):
         """initialize the arithmetic tokenizer.
 
         args:
@@ -38,7 +40,7 @@ class ArithmeticTokenizer:
         self.id_to_token = {v: k for k, v in self.vocab.items()}
         self.max_length = max_length
 
-    def encode(self, text, max_length=None, padding='do_not_pad'):
+    def encode(self, text: str, max_length: int = None, padding: Literal['max_length', 'do_not_pad'] = 'do_not_pad'):
         """encode input text to token ids.
 
         args:
@@ -89,7 +91,7 @@ class ArithmeticTokenizer:
 
         return output
 
-    def decode(self, token_ids, skip_special_tokens=True):
+    def decode(self, token_ids: int, skip_special_tokens: bool = True):
         """decode a list of token ids back to text.
 
         args:

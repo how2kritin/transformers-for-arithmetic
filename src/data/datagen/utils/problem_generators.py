@@ -1,7 +1,10 @@
 import random
+
 from src.data.datagen.utils.arithmetic_generator_utils import convert_digits_to_number
 
-def generate_no_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
+
+def generate_no_carry_addition(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                               max_digits_b: int = 3):
     """generate addition problems where no carrying is required."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b, max_digits_b)
@@ -39,7 +42,8 @@ def generate_no_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, m
     return a, b, result
 
 
-def generate_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3, min_carries=1):
+def generate_carry_addition(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1, max_digits_b: int = 3,
+                            min_carries: int = 1):
     """generate addition problems with at least one carry operation."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b, max_digits_b)
@@ -97,7 +101,8 @@ def generate_carry_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_
     return a, b, result
 
 
-def generate_no_borrow_negative_subtraction(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
+def generate_no_borrow_negative_subtraction(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                            max_digits_b: int = 3):
     """generate subtraction problems with negative numbers (-a - b) where no borrowing is required."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b, max_digits_b)
@@ -134,7 +139,8 @@ def generate_no_borrow_negative_subtraction(min_digits_a=1, max_digits_a=3, min_
     return -a, -b, result
 
 
-def generate_borrow_negative_subtraction(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3, min_borrows=1):
+def generate_borrow_negative_subtraction(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                         max_digits_b: int = 3, min_borrows: int = 1):
     """generate subtraction problems with negative numbers (-a - b) where borrowing is required."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b, max_digits_b)
@@ -191,11 +197,12 @@ def generate_borrow_negative_subtraction(min_digits_a=1, max_digits_a=3, min_dig
     return -a, -b, result
 
 
-def generate_no_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
+def generate_no_borrow_positive_subtraction(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                            max_digits_b: int = 3):
     """generate subtraction problems with positive numbers (a - b) where no borrowing is required."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b,
-                           min(max_digits_b, digits_a))  # b cannot have more digits than a for a - b > 0
+                              min(max_digits_b, digits_a))  # b cannot have more digits than a for a - b > 0
 
     # generate individual digits ensuring no borrowing
     a_digits = []
@@ -224,11 +231,12 @@ def generate_no_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_
     return a, -b, result
 
 
-def generate_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3, min_borrows=1):
+def generate_borrow_positive_subtraction(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                         max_digits_b: int = 3, min_borrows: int = 1):
     """generate subtraction problems with positive numbers (a - b) where borrowing is required."""
     digits_a = random.randint(min_digits_a, max_digits_a)
     digits_b = random.randint(min_digits_b,
-                           min(max_digits_b, digits_a))  # b cannot have more digits than a for a - b > 0
+                              min(max_digits_b, digits_a))  # b cannot have more digits than a for a - b > 0
 
     borrows_placed = 0
     max_potential_borrows = digits_b
@@ -289,7 +297,8 @@ def generate_borrow_positive_subtraction(min_digits_a=1, max_digits_a=3, min_dig
     return a, -b, result
 
 
-def generate_no_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3):
+def generate_no_carry_negative_positive_addition(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                                 max_digits_b: int = 3):
     """generate addition problems with negative and positive numbers (-a + b) where |a| > |b|, no carrying."""
     # for -a + b without carrying, we can reuse the positive subtraction without borrowing logic
     # since -a + b = b - a mathematically
@@ -303,8 +312,8 @@ def generate_no_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3,
     return -a, -b, -result  # This ensures we return (-a, b, result) for -a + b
 
 
-def generate_carry_negative_positive_addition(min_digits_a=1, max_digits_a=3, min_digits_b=1, max_digits_b=3,
-                                           min_carries=1):
+def generate_carry_negative_positive_addition(min_digits_a: int = 1, max_digits_a: int = 3, min_digits_b: int = 1,
+                                              max_digits_b: int = 3, min_carries: int = 1):
     """generate addition problems with negative and positive numbers (-a + b) with carrying."""
     # for -a + b with carrying, we can simply reuse the positive subtraction with borrowing logic
     # since -a + b = b - a mathematically

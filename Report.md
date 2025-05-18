@@ -11,7 +11,7 @@
 ## Quantitative Performance and Generalization
 
 For best performing model (1 to 10 train/test/val size, 11 to 15 generalization size, 65 epochs).
-**Learning rate of 1e-4 for everything reported in this analysis.**
+**Learning rate of 1e-4 has been used for everything reported in this analysis.**
 
 **Hyperparameters used:**
 

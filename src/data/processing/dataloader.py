@@ -1,5 +1,5 @@
 import os
-import torch
+
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
@@ -7,7 +7,8 @@ from src.data.processing.dataset import ArithmeticDataset
 from src.data.processing.tokenizer import ArithmeticTokenizer
 
 
-def create_dataloaders(dataset_path, tokenizer=None, batch_size=32, max_length=64, num_workers=4):
+def create_dataloaders(dataset_path: str, tokenizer=None, batch_size: int = 32, max_length: int = 64,
+                       num_workers: int = 4):
     """create dataloaders for training, validation and testing.
 
     args:

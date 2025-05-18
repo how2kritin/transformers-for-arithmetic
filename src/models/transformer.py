@@ -329,7 +329,7 @@ class ArithmeticTransformer(nn.Module):
     """
 
     def __init__(self, vocab_size: int, d_model: int = 128, num_encoder_layers: int = 3, num_decoder_layers: int = 3, num_heads: int = 8, d_ff: int = 512,
-                 max_seq_length: int = 64, dropout: int = 0.1, pos_encoding_type: Literal['standard', 'adaptive'] = 'standard'):
+                 max_seq_length: int = 64, dropout: float = 0.1, pos_encoding_type: Literal['standard', 'adaptive'] = 'standard'):
         """initialize the transformer model.
 
         :arg vocab_size: size of the vocabulary

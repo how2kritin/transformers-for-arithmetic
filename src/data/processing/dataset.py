@@ -1,17 +1,18 @@
 import os
+
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
 
 class ArithmeticDataset(Dataset):
-    """dataset class for arithmetic operations data.
+    """dataset class for arithmetic operations' data.
 
     this class loads arithmetic expression data from csv files
     and prepares it for transformer model training.
     """
 
-    def __init__(self, csv_file, tokenizer, max_length=64):
+    def __init__(self, csv_file: str, tokenizer, max_length: int = 64):
         """initialize the arithmetic dataset.
 
         args:
@@ -32,7 +33,7 @@ class ArithmeticDataset(Dataset):
         """return the number of samples in the dataset."""
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         """fetch a sample from the dataset.
 
         args:
