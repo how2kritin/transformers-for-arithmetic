@@ -13,8 +13,8 @@ from tqdm import tqdm, trange
 
 from src.data.processing.dataloader import create_dataloaders
 from src.data.processing.tokenizer import ArithmeticTokenizer
-from src.models.transformer import ArithmeticTransformer
-from src.models.transformer_config import ArithmeticTransformerConfig
+from src.models.ArithmeticTransformer import ArithmeticTransformer
+from src.models.ArithmeticTransformerConfig import ArithmeticTransformerConfig
 
 
 class ArithmeticTransformerTrainer:
@@ -522,8 +522,7 @@ def main():
     # initialize trainer
     trainer = ArithmeticTransformerTrainer(model=model, tokenizer=tokenizer, train_loader=train_loader,
                                            val_loader=val_loader, test_loader=test_loader, lr=args.learning_rate,
-                                           device=device,
-                                           checkpoint_dir=args.checkpoint_dir)
+                                           device=device, checkpoint_dir=args.checkpoint_dir)
 
     # load checkpoint if provided
     if args.resume:
