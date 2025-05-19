@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Literal
 
 import numpy as np
 import torch
@@ -8,8 +9,8 @@ from tqdm import tqdm
 
 from src.data.processing.dataset import ArithmeticDataset
 from src.data.processing.tokenizer import ArithmeticTokenizer
-from src.models.transformer import ArithmeticTransformer
-from src.models.transformer_config import ArithmeticTransformerConfig
+from src.models.ArithmeticTransformer import ArithmeticTransformer
+from src.models.ArithmeticTransformerConfig import ArithmeticTransformerConfig
 
 
 class ArithmeticTransformerInference:
@@ -59,7 +60,7 @@ class ArithmeticTransformerInference:
         old_style_checkpoint = any('pos_encoder.pe' in key for key in checkpoint['model_state_dict'].keys())
 
         # initialize model with the appropriate positional encoding type
-        pos_encoding_type = 'standard' if old_style_checkpoint else 'adaptive'
+        pos_encoding_type: Literal['standard', 'adaptive'] = 'standard' if old_style_checkpoint else 'adaptive'
         print(f"Detected checkpoint format: Using {pos_encoding_type} positional encoding")
 
         # initialize empty model with the appropriate encoding type
