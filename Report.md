@@ -1,290 +1,270 @@
-## Name: Kritin Maddireddy
+# Transformers for Arithmetic
 
-## Roll Number: 2022101071
+A Transformer-based encoder-decoder model for solving arithmetic operations. This project implements a
+sequence-to-sequence transformer that learns to perform addition and subtraction with various complexities (carry/borrow
+operations, negative numbers). The model is trained on synthetic arithmetic datasets and evaluated on both
+in-distribution and out-of-distribution generalization tasks.
 
-## Link to checkpoints: https://drive.google.com/drive/folders/1FBGA5FTwvXcSlBgd_qAUCaTHyFZEFIwN?usp=drive_link
+Implemented in Python using PyTorch. This corresponds to Assignment-5 of the Introduction to Natural Language Processing
+course at IIIT Hyderabad, taken in the Spring'25 semester.
 
----
+Done as a part of the
 
-# Analysis
-
-## Quantitative Performance and Generalization
-
-For best performing model (1 to 10 train/test/val size, 11 to 15 generalization size, 65 epochs).
-**Learning rate of 1e-4 has been used for everything reported in this analysis.**
-
-**Hyperparameters used:**
-
-```
-d_model = 128
-num_encoder_layers = 3
-num_decoder_layers = 3
-num_heads = 8
-d_ff = 512  # 4 * d_model
-max_seq_length = 64
-dropout = 0.1
-pos_encoding_type = standard
-```
-
-### Justification for these hyperparameter choices:
-
-Firstly, arithmetic operations are structurally simpler as compared to typical language modelling tasks. Hence, I will
-be making a transformer that's smaller than the one proposed in the "Attention Is All You Need" paper.
-
-**How do I do this?**
- - Using a moderate embedding dimension (128) instead of larger sizes like 512 or 768
- - Using fewer layers (3 encoder, 3 decoder) instead of 6+ layers
- - Maintaining a reasonable feed-forward dimension (512) for pattern capture
- - **Attention Mechanism:** I am using 8 attention heads to allow the model to focus on different
-   portions of the sequence, so that it can attempt to learn positions and significance of the symbols and digits.
- - **Sequence Length:** A max sequence length of 64 so that there's enough space to provide larger numbers later to test.
-
-These choices result in a model with approximately:
-
-- 3 encoder layers × [(128×128×8 for attention) + (128×512×2 for FF)] = ~787K parameters in encoder
-- 3 decoder layers × [(128×128×8×2 for attention) + (128×512×2 for FF)] = ~1.18M parameters in decoder
-- Plus embeddings and output projection: ~4K parameters
-
-Total: ~2M parameters - A reasonable size that can be trained efficiently on most hardware
-while having sufficient capacity to learn arithmetic operations.
-
-### Best model accuracy
-
-```
-Evaluation on datasets/dataset_test.csv:  
-  Loss: 0.0021  
-  Accuracy: 0.9960  
-  Character Accuracy: 0.9994  
-  Perplexity: 1.0021  
-
-Evaluation on datasets/dataset_generalization.csv:  
-  Loss: 7.7232  
-  Accuracy: 0.0558  
-  Character Accuracy: 0.2575  
-  Perplexity: 2260.1382  
-```
-
-Clearly, the model is very good at performing arithmetic on sequences of lengths 1 to 10 (because that's what it has
-been trained on), however, it is absolutely garbage at performing arithmetic on larger sequences (which it hasn't been
-trained on).
-
-Essentially, it is not "learning" to performing arithmetic, rather, it's memorizing patterns in addition and it is
-overfitting to sequences of length 1 to 10. It is unable to generalize effectively. Thus, it fails on longer sequences.
+Please check the [Report.md](Report.md) if you'd like to take a look at the evaluation results.
 
 ---
 
-## Error Analysis
+# Pre-requisites
 
-Please check the file: [test_output_incorrect.txt](results/test_output_incorrect.txt)
-
-### Incorrect prediction categories
-
-1. **Single Digit Substitution Errors**
-
-   The model often substitutes just one digit in the middle or end of the sequence:
-
-   ```
-   Example 508:
-     Input: -1769405888+900878847
-     Target: -868527041
-     Prediction: -868527011
-   ```
-   
-   _A special case of this_: **Leading Digit Errors**
-
-      The model predicts the wrong leading digit while maintaining most of the remaining digits correctly.
-
-      ```
-      Example 506:
-        Input: 32575826+3967525661
-        Target: 4000101487
-        Prediction: 3000101487
-      ```
-
-2. **Order of Magnitude Errors**
-
-   The model sometimes adds/misses a zero, thereby changing the order of magnitude of the result.
-
-   ```
-   Example 4241:
-     Input: -4988986778+4986462558
-     Target: -2524220
-     Prediction: -25242200
-   ```
-
-3. **Small number Errors**
-
-   For very small numbers (especially negative single digit numbers), the model has high error rates.
-
-   ```
-   Example 5231:
-     Input: -107+98
-     Target: -9
-     Prediction: -39
-   ```
-
-### Correlation of errors with input characteristics
-
-**Impact of input length**  
-1. Clearly, on the generalization set, the model is garbage. However, even otherwise, the model seems to make more significant errors on very large numbers as it tends to get the order of magnitude wrong, or randomly gets one of the intermediate digits wrong.
-2. Even for very small numbers, it tends to get the order of magnitude wrong.
-
-**Impact of carry/borrow operations**  
-A lot of errors occur in cases which require multiple carry/borrow operations.
-```
-Example 13719:
-  Input: -977447889+977306144
-  Target: -141745
-  Prediction: -1067555
-```
-
-**Position dependent errors**  
-Most errors seem to occur in the first few places (leftmost), suggesting that there might be an issue in carry/borrow propagation from left to right.
+1. `python 3.12`
+2. A python package manager such as `pip` or `conda`.
+3. [pytorch](https://pytorch.org/get-started/locally/)
+4. (OPTIONAL) `virtualenv` to create a virtual environment.
+5. All the python libraries mentioned in `requirements.txt`.
 
 ---
 
-## Ablation/Sensitivity Study
+# Dataset Generation
 
-Default (base) model config (1 to 10 train/test/val size, 11 to 15 generalization size).
+## Instructions to generate arithmetic datasets
 
-**Hyperparameters used:**
+### Usage
 
-```
-d_model = 128
-num_encoder_layers = 3
-num_decoder_layers = 3
-num_heads = 8
-d_ff = 512  # 4 * d_model
-max_seq_length = 64
-dropout = 0.1
-pos_encoding_type = standard
+```bash
+python -m src.data.datagen.dataset_generator [--num_samples NUM_SAMPLES] [--min_digits MIN_DIGITS] [--max_digits MAX_DIGITS] 
+                                            [--output_dir OUTPUT_DIR] [--filename FILENAME] [--gen_min_digits GEN_MIN_DIGITS] 
+                                            [--gen_max_digits GEN_MAX_DIGITS] [--gen_filename GEN_FILENAME] [--seed SEED]
 ```
 
-**I will be comparing each for 15 epochs of training.**
+### Arguments
 
-```
-Evaluation on datasets/dataset_test.csv:
-  Loss: 0.0421
-  Accuracy: 0.9227
-  Character Accuracy: 0.9856
-  Perplexity: 1.0430
+- `--num_samples <count>` : Total number of examples to generate (defaults to 200,000, divided by 8 for each category).
+- `--min_digits <count>` : Minimum number of digits for regular dataset (defaults to 1).
+- `--max_digits <count>` : Maximum number of digits for regular dataset (defaults to 10).
+- `--output_dir <path>` : Directory to save the dataset files (defaults to './datasets').
+- `--filename <name>` : Filename for the regular dataset (defaults to 'dataset.csv').
+- `--gen_min_digits <count>` : Minimum number of digits for generalization dataset (optional).
+- `--gen_max_digits <count>` : Maximum number of digits for generalization dataset (optional).
+- `--gen_filename <name>` : Filename for the generalization dataset (optional).
+- `--seed <value>` : Random seed for reproducibility (defaults to 42).
 
-Evaluation on datasets/dataset_generalization.csv:
-  Loss: 4.6615
-  Accuracy: 0.0435
-  Character Accuracy: 0.2750
-  Perplexity: 105.7952
-```
+### Dataset Categories
 
-### Changing the positional encoding method
+The generator creates 8 different categories of arithmetic problems:
 
-I changed the positional encoding method to adaptive encoding.
+- **a + b (no carry)** : Addition without carry operations
+- **a + b (carry)** : Addition with carry operations
+- **-a - b (no borrow)** : Negative subtraction without borrowing
+- **-a - b (borrow)** : Negative subtraction with borrowing
+- **a - b (no borrow)** : Positive subtraction without borrowing
+- **a - b (borrow)** : Positive subtraction with borrowing
+- **-a + b (no carry)** : Addition with negative first operand, no carry
+- **-a + b (carry)** : Addition with negative first operand, with carry
 
-```
-Evaluation on datasets/dataset_test.csv:
-  Loss: 0.0578
-  Accuracy: 0.8861
-  Character Accuracy: 0.9799
-  Perplexity: 1.0595
+### Example Usage
 
-Evaluation on datasets/dataset_generalization.csv:
-  Loss: 4.8966
-  Accuracy: 0.0310
-  Character Accuracy: 0.2985
-  Perplexity: 133.8381
-```
+Generate a basic training dataset:
 
-The adaptive positional encoding slightly hurt the model's in-distribution performance.
-
-While the sequence-level generalization accuracy decreased, there was a small improvement in character-level accuracy
-for out-of-distribution examples.
-
-This suggests that standard positional encoding was better for exact matches, but adaptive encoding might help the model
-better understand individual digit positions for new number ranges.
-
-### Changing $d_{model}$ (and thereby, $d_{ff}$ as $d_{ff}$ is $4 * d_{model}$)
-
-I changed $d_{model}$ to 256 (and thus, $d_{ff}$ to 1024).
-This transformer took much longer to train (about 2.5x as long).
-
-```
-Evaluation on datasets/dataset_test.csv:
-  Loss: 0.0212
-  Accuracy: 0.9600
-  Character Accuracy: 0.9928
-  Perplexity: 1.0215
-  
-Evaluation on datasets/dataset_generalization.csv:
-  Loss: 5.7076
-  Accuracy: 0.0312
-  Character Accuracy: 0.2763
-  Perplexity: 301.1495
+```bash
+python -m src.data.datagen.dataset_generator --num_samples 160000 --max_digits 8 --filename training_dataset.csv
 ```
 
-Doubling the model dimension significantly improved in-distribution performance.
+Generate both training and generalization datasets:
 
-However, it didn't help with generalization at the sequence level and provided minimal improvement at the character
-level.
-
-The increased model capacity allowed better memorization of training patterns but not better abstraction of the
-underlying arithmetic rules.
-
-### Changing the number of encoder and decoder layers
-
-I doubled the number of encoder and decoder layers (from 3 to 6).
-
-This transformer took much longer to train (about 2x as long).
-
-```
-Evaluation on datasets/dataset_test.csv:
-  Loss: 0.0166
-  Accuracy: 0.9744
-  Character Accuracy: 0.9952
-  Perplexity: 1.0167
-
-Evaluation on datasets/dataset_generalization.csv:
-  Loss: 4.9184
-  Accuracy: 0.0384
-  Character Accuracy: 0.2844
-  Perplexity: 136.7872
+```bash
+python -m src.data.datagen.dataset_generator --num_samples 200000 --max_digits 10 --gen_filename dataset_generalization.csv
 ```
 
-Doubling the network depth provided the greatest improvement in test accuracy among all modifications.
+Generate with custom parameters:
 
-The model achieved the highest in-distribution character accuracy (99.52%).
-
-While it still struggled with full sequence accuracy on the generalization set, it showed slight improvements in
-character-level accuracy.
-
-This suggests deeper networks can better learn the patterns within the training distribution but still face challenges
-with proper generalization.
-
-### General findings
-
-All my changes improved accuracy for in-distribution sequence lengths, though this is not what we want. We still want a good, generalizable model.
-
-In general, deeper and wider networks provided better in-distribution performance, but this was at the cost of training
-time and potentially increased overfitting as well.
-
-The deeper model (more layers) showed better performance as compared to the wider network (higher dimensional layers).
-
-No configuration has dramatically improved generalization performance. This suggests that hyperparameter tuning alone
-may not be sufficient for systematic generalization in arithmetic tasks.
+```bash
+python -m src.data.datagen.dataset_generator --num_samples 100000 --min_digits 2 --max_digits 6 --gen_min_digits 7 --gen_max_digits 12 --gen_filename generalization_test.csv
+```
 
 ---
 
-## Discussion
+# Model Training
 
-After all this analysis, it's clear that our transformer model hasn't really "learned" to do arithmetic. What it's done instead is essentially memorize patterns it saw during training. The huge performance gap between the test set (99.60% accuracy for exact match) and generalization set (5.58% accuracy for exact match) makes this extremely obvious.
+## Instructions to train the arithmetic transformer
 
-The model is great at spitting out answers for number lengths it's seen before, but completely falls apart when faced with longer numbers.Then again, are we supposed to be surprised? I'd say not at all, since transformers are pattern-matching machines, and they're just doing what they do best: finding statistical regularities in the training data.
+### Usage
 
-The ablation studies further confirm this. Making the network deeper or wider improved in-distribution performance, but did basically nothing for generalization. The deeper model (more layers) performed better than the wider one, but neither configuration was better than the model that I started out with, in the generalization problem. Perhaps no amount of hyperparameter tuning can fix the most fundamental issue here: the model is memorizing, not learning.
+```bash
+python -m src.train_model [--dataset_path DATASET_PATH] [--d_model D_MODEL] [--num_encoder_layers NUM_ENCODER_LAYERS] 
+                         [--num_decoder_layers NUM_DECODER_LAYERS] [--num_heads NUM_HEADS] [--d_ff D_FF] 
+                         [--max_seq_length MAX_SEQ_LENGTH] [--dropout DROPOUT] [--pos_encoding_type {standard,adaptive}]
+                         [--batch_size BATCH_SIZE] [--num_workers NUM_WORKERS] [--no_cuda] [--learning_rate LEARNING_RATE] 
+                         [--epochs EPOCHS] [--patience PATIENCE] [--resume RESUME] [--checkpoint_dir CHECKPOINT_DIR]
+```
 
-When we compare this to how humans do arithmetic, the differences are stark. We learn a generalizable algorithm that works regardless of number length. Once we understand carrying and borrowing, we can add or subtract numbers of any length (though we are kinda slow at processing larger numbers). We also process digits sequentially (usually right-to-left), explicitly tracking carries as we go.
+### Arguments
 
-The transformer meanwhile, seems as though it attempts to process the entire expression at once, looking for patterns it recognizes from training. It has no explicit procedure and no concept of place value that generalizes beyond what it's seen. Its attention mechanism theoretically gives it access to all input tokens simultaneously, but it still can't effectively handle the long-range dependencies needed for multi-digit arithmetic.
+#### Data Arguments
 
-Honestly though, why even are we using transformers for this task? Just use the `add` and `sub` assembly instructions instead, which are extremely effective at this task. Why introduce neural nets into an already deterministically solvable task?
+- `--dataset_path <path>` : Path to the dataset directory (defaults to './datasets').
+
+#### Model Architecture Arguments
+
+- `--d_model <size>` : Dimensionality of the embeddings (defaults to 128).
+- `--num_encoder_layers <count>` : Number of encoder layers (defaults to 3).
+- `--num_decoder_layers <count>` : Number of decoder layers (defaults to 3).
+- `--num_heads <count>` : Number of attention heads (defaults to 8).
+- `--d_ff <size>` : Dimensionality of the feed-forward network (defaults to 512).
+- `--max_seq_length <length>` : Maximum sequence length (defaults to 64).
+- `--dropout <rate>` : Dropout probability (defaults to 0.1).
+- `--pos_encoding_type {standard,adaptive}` : Type of positional encoding (defaults to 'standard').
+
+#### Training Arguments
+
+- `--batch_size <size>` : Training batch size (defaults to 32).
+- `--num_workers <count>` : Number of data loading workers (defaults to 4).
+- `--no_cuda` : Disable CUDA and use CPU only.
+- `--learning_rate <rate>` : Learning rate (defaults to 1e-4).
+- `--epochs <count>` : Number of training epochs (defaults to 50).
+- `--patience <count>` : Early stopping patience (defaults to 5).
+- `--resume <path>` : Resume from checkpoint file (optional).
+- `--checkpoint_dir <path>` : Directory to save checkpoints (defaults to 'checkpoints').
+
+### Model Architecture
+
+The transformer uses an encoder-decoder architecture with:
+
+- **Vocabulary size**: 16 tokens (digits 0-9, operators +/-, special tokens)
+- **Encoder**: Processes the arithmetic expression
+- **Decoder**: Generates the result autoregressively
+- **Attention mechanism**: Multi-head self-attention and cross-attention
+- **Positional encoding**: Standard or adaptive positional embeddings
+
+### Example Usage
+
+Train with default settings:
+
+```bash
+python -m src.train_model --epochs 100
+```
+
+Train with custom architecture:
+
+```bash
+python -m src.train_model --d_model 256 --num_encoder_layers 6 --num_decoder_layers 6 --num_heads 16 --epochs 100
+```
+
+Train with modified training parameters:
+
+```bash
+python -m src.train_model --batch_size 64 --learning_rate 5e-4 --epochs 150 --patience 10
+```
+
+Resume training from checkpoint:
+
+```bash
+python -m src.train_model --resume checkpoints/best_model.pt --epochs 100
+```
+
+Train with adaptive positional encoding:
+
+```bash
+python -m src.train_model --pos_encoding_type adaptive --d_model 256 --epochs 100
+```
+
+---
+
+# Model Inference
+
+## Instructions to run inference with trained models
+
+### Usage
+
+```bash
+python -m src.inference --checkpoint CHECKPOINT [--input INPUT] [--csv_file CSV_FILE] [--output_file OUTPUT_FILE] 
+                       [--batch_size BATCH_SIZE] [--num_workers NUM_WORKERS] [--max_length MAX_LENGTH] [--no_cuda]
+```
+
+### Arguments
+
+- `--checkpoint <path>` : Path to the model checkpoint file (required).
+- `--input <expression>` : Input arithmetic expression for single inference (e.g., '2+3').
+- `--csv_file <path>` : CSV file containing 'expression' and 'result' columns for batch evaluation.
+- `--output_file <path>` : File to save output predictions and evaluation results.
+- `--batch_size <size>` : Batch size for inference (defaults to 256).
+- `--num_workers <count>` : Number of data loading workers (defaults to 4).
+- `--max_length <length>` : Maximum sequence length (defaults to 64).
+- `--no_cuda` : Disable CUDA and use CPU only.
+
+### Output Format
+
+When evaluating a CSV file with `--output_file`, the inference generates:
+
+- **Summary file** (`output_file`): Overall metrics including accuracy, character accuracy, and perplexity
+- **Correct predictions file** (`output_file_correct.txt`): All correctly predicted examples
+- **Incorrect predictions file** (`output_file_incorrect.txt`): All incorrectly predicted examples
+
+### Evaluation Metrics
+
+- **Accuracy**: Percentage of completely correct sequence predictions
+- **Character Accuracy**: Percentage of correctly predicted characters
+- **Perplexity**: Model's uncertainty measure
+
+### Example Usage
+
+Single expression inference:
+
+```bash
+python -m src.inference --checkpoint checkpoints/best_model.pt --input "123+456"
+```
+
+Evaluate on a test dataset:
+
+```bash
+python -m src.inference --checkpoint checkpoints/best_model.pt --csv_file datasets/dataset_generalization.csv
+```
+
+Evaluate and save detailed results:
+
+```bash
+python -m src.inference --checkpoint checkpoints/best_model.pt --csv_file datasets/test_data.csv --output_file results/evaluation_results.txt
+```
+
+Batch inference with custom settings:
+
+```bash
+python -m src.inference --checkpoint checkpoints/best_model.pt --csv_file datasets/large_test.csv --batch_size 512 --output_file results/large_test_results.txt
+```
+
+Test multiple expressions:
+
+```bash
+python -m src.inference --checkpoint checkpoints/best_model.pt --input "999+1"
+python -m src.inference --checkpoint checkpoints/best_model.pt --input "1000-999"
+python -m src.inference --checkpoint checkpoints/best_model.pt --input "-50+25"
+```
+
+---
+
+# Quick Start
+
+1. **Generate training data**:
+
+    ```bash
+    python -m src.data.datagen.dataset_generator --num_samples 200000 --max_digits 10
+    ```
+
+2. **Generate generalization test data**:
+
+    ```bash
+    python -m src.data.datagen.dataset_generator --gen_filename dataset_generalization.csv --gen_min_digits 11 --gen_max_digits 15
+    ```
+
+3. **Train the model**:
+
+    ```bash
+    python -m src.train_model --epochs 100 --batch_size 64
+    ```
+
+4. **Run inference**:
+
+    ```bash
+    python -m src.inference --checkpoint checkpoints/best_model.pt --csv_file datasets/dataset_generalization.csv --output_file results/generalization_test.txt
+    ```
 
 ---
