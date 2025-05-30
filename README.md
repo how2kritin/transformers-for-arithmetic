@@ -5,10 +5,8 @@ sequence-to-sequence transformer that learns to perform addition and subtraction
 operations, negative numbers). The model is trained on synthetic arithmetic datasets and evaluated on both
 in-distribution and out-of-distribution generalization tasks.
 
-Implemented in Python using PyTorch. This corresponds to Assignment-5 of the Introduction to Natural Language Processing
+Implemented in Python using PyTorch. Followed the architecture defined in the ["Attention is All You Need" paper (Vaswani et al., 2023)](https://arxiv.org/abs/1706.03762). This corresponds to Assignment-5 of the Introduction to Natural Language Processing
 course at IIIT Hyderabad, taken in the Spring'25 semester.
-
-Done as a part of the
 
 Please check the [Report.md](Report.md) if you'd like to take a look at the evaluation results.
 
