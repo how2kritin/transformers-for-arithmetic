@@ -3,8 +3,8 @@ from typing import Literal
 import torch
 import torch.nn as nn
 
-from models.Decoder.Decoder import Decoder
-from models.Encoder.Encoder import Encoder
+from models.ArithmeticTransformer.Decoder.Decoder import Decoder
+from models.ArithmeticTransformer.Encoder.Encoder import Encoder
 
 
 class ArithmeticTransformer(nn.Module):

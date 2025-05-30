@@ -4,8 +4,8 @@ from typing import Literal
 import torch
 import torch.nn as nn
 
-from models.Decoder.DecoderLayer import DecoderLayer
-from models.FactoryFunctions.get_positional_encoding import get_positional_encoding
+from models.ArithmeticTransformer.Decoder.DecoderLayer import DecoderLayer
+from models.ArithmeticTransformer.FactoryFunctions.get_positional_encoding import get_positional_encoding
 
 
 class Decoder(nn.Module):

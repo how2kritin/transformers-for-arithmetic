@@ -1,7 +1,7 @@
 from typing import Literal
 
-from models.Encodings.AdaptivePositionalEncoding import AdaptivePositionalEncoding
-from models.Encodings.PositionalEncoding import PositionalEncoding
+from models.ArithmeticTransformer.Encodings.AdaptivePositionalEncoding import AdaptivePositionalEncoding
+from models.ArithmeticTransformer.Encodings.PositionalEncoding import PositionalEncoding
 
 
 def get_positional_encoding(encoding_type: Literal["standard", "adaptive"], d_model: int, max_seq_length: int = 64,
